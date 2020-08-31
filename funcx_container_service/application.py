@@ -1,11 +1,15 @@
 from flask import Flask
+from flask_restful import Resource, Api
 
 app = Flask(__name__)
+api = Api(app)
 
 
-@app.route("/environment")
-def env_endpoint():
-    return "TODO :)"
+class Environments(Resource):
+    def get(self):
+        return "TODO :)"
+
+api.add_resource(Environments, "/environments")
 
 
 if __name__ == "__main__":
