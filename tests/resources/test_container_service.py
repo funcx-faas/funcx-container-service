@@ -1,4 +1,5 @@
 from funcx_container_service import create_app
+from funcx_container_service.config import TestConfig
 
 import pytest
 
@@ -6,7 +7,7 @@ import pytest
 class TestContainerService:
     @pytest.fixture
     def client(self):
-        return create_app(app_config_object={}).test_client()
+        return create_app(app_config_object=TestConfig).test_client()
 
     def test_create_environment(self, client):
         assert True
