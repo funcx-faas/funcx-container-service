@@ -1,16 +1,6 @@
-from flask import Flask
-from flask_restful import Resource, Api
+from funcx_container_service import create_app
 
-app = Flask(__name__)
-api = Api(app)
-
-
-class Environments(Resource):
-    def get(self):
-        return "TODO :)"
-
-api.add_resource(Environments, "/environments")
-
+app = create_app()
 
 if __name__ == "__main__":
     app.run("0.0.0.0", port=5000)
