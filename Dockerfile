@@ -4,22 +4,16 @@ RUN apk update && \
     apk add postgresql-dev libffi-dev g++ make libressl-dev git
 
 # Create a group and user
-RUN addgroup -S uwsgi && adduser -S uwsgi -G uwsgi
+RUN addgroup -S http && adduser -S http -G http
 
-WORKDIR /opt/funcx-container-service
+WORKDIR /opt/
 
-COPY ./requirements.txt .
-RUN pip install -r requirements.txt
-RUN  pip uninstall -y funcx && \
-     pip install "git+https://github.com/funcx-faas/funcX.git@dev#egg=funcx&subdirectory=funcx_sdk"
+COPY ./requirements.txt /tmp/
+RUN pip install -r /tmp/requirements.txt
 
-RUN pip install --disable-pip-version-check uwsgi
+COPY ./funcx_container_service/ ./
 
-COPY uwsgi.ini .
-COPY ./funcx_container_service/ ./funcx_container_service/
-COPY web-entrypoint.sh .
-
-USER uwsgi
+USER http
 EXPOSE 5000
 
-CMD sh web-entrypoint.sh
+CMD uvicorn funcx_container_service:app --host '0.0.0.0' --port 5000

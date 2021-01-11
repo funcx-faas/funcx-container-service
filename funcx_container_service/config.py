@@ -1,11 +1,11 @@
-class Config(object):
+class DefaultConfig(object):
     DEBUG = False
     TESTING = False
 
 
-class TestConfig(object):
+class TestConfig(DefaultConfig):
     TESTING = True
 
 
-class DebugConfig(object):
+class DebugConfig(DefaultConfig):
     DEBUG = True
