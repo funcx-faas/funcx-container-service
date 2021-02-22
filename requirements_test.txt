@@ -1,3 +1,2 @@
-flake8>=3.8
-pytest>=5.2
-pytest-flask==1.0.0
+flake8
+pytest
