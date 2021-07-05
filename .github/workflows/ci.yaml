@@ -26,8 +26,6 @@ jobs:
         python -m pip install --upgrade pip setuptools wheel
         python -m pip install -r requirements.txt
         python -m pip install -r requirements_test.txt
-        python -m pip uninstall -y funcx
-        python -m pip install "git+https://github.com/funcx-faas/funcX.git@dev#egg=funcx&subdirectory=funcx_sdk"
         pip list
     - name: Check for vulnerabilities in libraries
       run: |
@@ -48,11 +46,3 @@ jobs:
       shell: bash
       run: echo "##[set-output name=imagetag;]$(echo ${GITHUB_REF##*/})"
       id: extract_tag_name
-
-    - name: Build funcX-container-service Image
-      uses: elgohr/Publish-Docker-Github-Action@master
-      with:
-        name: funcx/container-service:${{ steps.extract_tag_name.outputs.imagetag }}
-        username: ${{ secrets.DOCKER_USERNAME }}
-        password: ${{ secrets.DOCKER_PASSWORD }}
-        tag: "${GITHUB_REF##*/}"
