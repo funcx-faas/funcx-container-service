@@ -1,38 +1,37 @@
 from uuid import UUID
 from typing import Optional
+from functools import lru_cache
 
 from fastapi import (FastAPI, UploadFile, File, Response,
                      BackgroundTasks, Depends)
 from pydantic import AnyUrl
-from sqlalchemy.orm import Session
 
-from . import database, build, landlord
+from . import database, build, landlord, callback_router
 from .models import ContainerSpec, StatusResponse
 from .dockerfile import emit_dockerfile
+from .config import Settings
+
+import pdb
+
 
 app = FastAPI()
 
 
-def db_session():
-    session = database.Session()
-    try:
-        yield session
-        session.commit()
-    except:  # noqa: E722
-        session.rollback()
-        raise
-    finally:
-        session.close()
+@lru_cache()
+def get_settings():
+    return Settings()
 
 
-@app.post("/build", response_model=UUID)
-async def simple_build(spec: ContainerSpec, tasks: BackgroundTasks,
-                       db: Session = Depends(db_session)):
+@app.post("/build", response_model=UUID, callbacks=callback_router.build_callback_router.routes)
+async def simple_build(spec: ContainerSpec, 
+                       tasks: BackgroundTasks,
+                       settings: Settings = Depends(get_settings)):
     """Build a container based on a JSON specification.
 
     Returns an ID that can be used to query container status.
     """
-    container_id = await database.store_spec(db, spec)
+    pdb.set_trace()
+    container_id = await callback_router.register_container_spec(spec, settings)
 
     alt = await landlord.find_existing(db, spec)
     if not alt:
@@ -43,7 +42,6 @@ async def simple_build(spec: ContainerSpec, tasks: BackgroundTasks,
 
 @app.post("/build_advanced", response_model=UUID)
 async def advanced_build(tasks: BackgroundTasks, repo: UploadFile = File(...),
-                         db: Session = Depends(db_session),
                          s3=Depends(build.s3_connection)):
     """Build a container using repo2docker.
 
@@ -57,7 +55,7 @@ async def advanced_build(tasks: BackgroundTasks, repo: UploadFile = File(...),
 
 
 @app.get("/{build_id}/dockerfile")
-async def dockerfile(build_id: UUID, db: Session = Depends(db_session)):
+async def dockerfile(build_id: UUID):
     """Generate a Dockerfile to build the given container.
 
     Does not support "advanced build" (tarball) containers.
@@ -70,14 +68,13 @@ async def dockerfile(build_id: UUID, db: Session = Depends(db_session)):
 
 
 @app.get("/{build_id}/status", response_model=StatusResponse)
-async def status(build_id: UUID, db: Session = Depends(db_session)):
+async def status(build_id: UUID):
     """Check the status of a previously submitted build."""
     return await database.status(db, str(build_id))
 
 
 @app.get("/{build_id}/docker", response_model=Optional[str])
 async def get_docker(build_id: UUID, tasks: BackgroundTasks,
-                     db: Session = Depends(db_session),
                      ecr=Depends(build.ecr_connection)):
     """Get the Docker build for a container.
 
@@ -94,7 +91,6 @@ async def get_docker(build_id: UUID, tasks: BackgroundTasks,
 
 @app.get("/{build_id}/docker_log", response_model=Optional[AnyUrl])
 async def get_docker_log(build_id: UUID, tasks: BackgroundTasks,
-                         db: Session = Depends(db_session),
                          s3=Depends(build.s3_connection)):
     """Get the Docker build log for a container.
 
@@ -107,7 +103,6 @@ async def get_docker_log(build_id: UUID, tasks: BackgroundTasks,
 
 @app.get("/{build_id}/singularity", response_model=Optional[AnyUrl])
 async def get_singularity(build_id: UUID, tasks: BackgroundTasks,
-                          db: Session = Depends(db_session),
                           s3=Depends(build.s3_connection)):
     """Get the Docker build for a container.
 
@@ -125,7 +120,6 @@ async def get_singularity(build_id: UUID, tasks: BackgroundTasks,
 
 @app.get("/{build_id}/singularity_log", response_model=Optional[AnyUrl])
 async def get_singularity_log(build_id: UUID, tasks: BackgroundTasks,
-                              db: Session = Depends(db_session),
                               s3=Depends(build.s3_connection)):
     """Get the Singularity build log for a container.
 
@@ -134,3 +128,8 @@ async def get_singularity_log(build_id: UUID, tasks: BackgroundTasks,
 
     url = await build.make_s3_url(db, s3, 'singularity-logs', str(build_id))
     return url
+
+
+@app.get("/")
+async def read_main():
+    return {"msg": "Hello World"}

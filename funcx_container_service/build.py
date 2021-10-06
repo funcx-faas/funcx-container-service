@@ -5,6 +5,8 @@ import tarfile
 import tempfile
 import docker
 import boto3
+import pdb
+
 from pathlib import Path
 from datetime import datetime
 from docker.errors import ImageNotFound
@@ -230,6 +232,7 @@ async def make_ecr_url(db, ecr, build_id):
 
 
 async def background_build(container_id, tarball):
+    pdb.set_trace()
     with database.session_scope() as db:
         if not await database.start_build(db, container_id):
             return
