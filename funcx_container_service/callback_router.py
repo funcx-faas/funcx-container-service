@@ -67,3 +67,14 @@ async def register_container_spec(spec: ContainerSpec,
         response = await client.post(f'{settings.webservice_url}/register_container_spec',
                                      data=spec)
     return response
+
+
+def register_container_spec_requests(spec: ContainerSpec,
+                                     settings: Settings):
+    """
+    Send container spec to webservice usings requests, get container ID as response
+    """
+    import requests
+    response = requests.post(f'{settings.webservice_url}/register_container_spec',
+                             data=spec)
+    return response

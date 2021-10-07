@@ -30,7 +30,7 @@ async def simple_build(spec: ContainerSpec,
 
     Returns an ID that can be used to query container status.
     """
-    pdb.set_trace()
+    # pdb.set_trace()
     container_id = await callback_router.register_container_spec(spec, settings)
 
     alt = await landlord.find_existing(db, spec)

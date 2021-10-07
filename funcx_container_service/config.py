@@ -1,10 +1,11 @@
 from pydantic import BaseSettings
+from typing import Optional
 
 
 class Settings(BaseSettings):
     app_name: str = "FuncxContainerService"
-    webservice_url: str = None
-    admin_email: str = None
+    webservice_url: Optional[str] = None
+    admin_email: Optional[str] = None
     
     class config:
         env_file = ".env"
