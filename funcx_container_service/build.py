@@ -231,9 +231,52 @@ async def make_ecr_url(db, ecr, build_id):
     return container.id, docker_name(container.id)
 
 
-async def background_build(container_id, tarball):
+async def simple_background_build(container_id, tarball):
     pdb.set_trace()
     with database.session_scope() as db:
+        """
+        - if db says container build process is ready or failed, then return
+        - if db says container build process is already started and in current instance
+          of this server (basedd on 'RUN_ID'(???)), then return
+        - if db says container build process is already started but RUN_ID's don't
+          match (previous instance), delete the 'build' from the database and continue
+          TODO: 'RUN_ID unique to this particular instance - (random uuid) - not scalable?'
+        """
+        if not await database.start_build(db, container_id):
+            return
+        container = db.query(database.Container).filter(
+                database.Container.id == container_id).one()
+
+        s3 = s3_connection()
+        docker_client = docker.APIClient(base_url=DOCKER_BASE_URL)
+        try:
+            container.docker_size = await docker_build(s3, container, tarball)
+            if container.docker_size is None:
+                container.state = ContainerState.failed
+                return
+            container.singularity_size = await singularity_build(
+                    s3, container_id)
+            if container.singularity_size is None:
+                container.state = ContainerState.failed
+                return
+            await asyncio.to_thread(docker_client.push,
+                                    docker_name(container_id))
+            container.state = ContainerState.ready
+        finally:
+            container.builder = None
+            await landlord.cleanup(db)
+
+
+async def background_build(container_id, tarball):
+    with database.session_scope() as db:
+        """
+        - if db says container build process is ready or failed, then return
+        - if db says container build process is already started and in current instance
+          of this server (basedd on 'RUN_ID'(???)), then return
+        - if db says container build process is already started but RUN_ID's don't
+          match (previous instance), delete the 'build' from the database and continue
+          TODO: 'RUN_ID unique to this particular instance - (random uuid) - not scalable?'
+        """
         if not await database.start_build(db, container_id):
             return
         container = db.query(database.Container).filter(

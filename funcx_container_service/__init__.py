@@ -32,6 +32,22 @@ async def simple_build(spec: ContainerSpec,
     """
     # pdb.set_trace()
     container_id = await callback_router.register_container_spec(spec, settings)
+    
+    tasks.add_task(build.background_build, container_id, None)
+
+    return await callback_router.add_build(container_id)
+
+
+@app.post("/landlord_build", response_model=UUID, callbacks=callback_router.build_callback_router.routes)
+async def landlord_build(spec: ContainerSpec, 
+                         tasks: BackgroundTasks,
+                         settings: Settings = Depends(get_settings)):
+    """Build a container based on a JSON specification.
+
+    Returns an ID that can be used to query container status.
+    """
+    # pdb.set_trace()
+    container_id = await callback_router.register_container_spec(spec, settings)
 
     alt = await landlord.find_existing(db, spec)
     if not alt:

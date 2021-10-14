@@ -2,14 +2,12 @@ import pytest
 import uuid
 import httpx
 from pytest_httpx import HTTPXMock
+import requests
 from unittest.mock import patch
 
 from funcx_container_service.config import Settings
 from funcx_container_service import callback_router
-from funcx_container_service.callback_router import register_container_spec, register_container_spec_requests
 from funcx_container_service.models import ContainerSpec
-
-import pdb
 
 
 @pytest.fixture
@@ -30,59 +28,75 @@ def settings_fixture():
     return settings
 
 
-# attempting non-async call to webservice following pattern at https://realpython.com/testing-third-party-apis-with-mocks/
-@patch('funcx_container_service.callback_router.requests.post')
-@patch('callback_router.requests.post')
-@patch('requests.post')
-# @patch.object('requests', 'post')
-def test_registering_with_requests(mock_post, settings_fixture, container_spec_fixture):
+""" 
+Attempting non-async call to webservice following pattern at 
+https://realpython.com/testing-third-party-apis-with-mocks/. Mocks 
+'request.post' call WITHIN callback_router.register_container_spec_requests()
+"""
+@patch.object(requests, 'post')
+def test_registering_with_requests(mock_post, 
+                                   settings_fixture, 
+                                   container_spec_fixture):
     mock_post.return_value.ok = True
-    pdb.set_trace()
-    response = register_container_spec_requests(container_spec_fixture, settings_fixture)
+    response = callback_router.register_container_spec_requests(container_spec_fixture, 
+                                                                settings_fixture)
     assert response is not None
 
 
 # Httpx mocking
 
-# without calling 'register_container_spec'
+"""
+Try an async call mocking the response using httpx_mock WITHOUT
+calling the external function 'callback_router.register_container_spec()'
+"""
 @pytest.mark.asyncio
 async def test_something_async(httpx_mock, settings_fixture):
     httpx_mock.add_response(method="POST",
                             url=settings_fixture.webservice_url,
-                            json=[{"UUID": str(uuid.uuid4())}])
+                            json=[{"message": 
+                                   "test message", "UUID": str(uuid.uuid4())}])
 
     async with httpx.AsyncClient() as client:
         response = await client.post(settings_fixture.webservice_url)
-        assert response.status_code == 200
-        assert is_valid_uuid(response.json()[0]['UUID'])
+
+    assert response.status_code == 200
+    assert response.json()[0]['message'] == 'test message'
+    assert is_valid_uuid(response.json()[0]['UUID'])
 
 
-# add in reference to register_container_spec()
+"""
+Try an async call mocking the response using httpx_mock by calling the external 
+function 'callback_router.register_container_spec()'
+"""
 @pytest.mark.asyncio
-async def test_httpx_url(httpx_mock: HTTPXMock, settings_fixture):
+async def test_register_container_spec(httpx_mock, settings_fixture, container_spec_fixture):
     
     httpx_mock.add_response(url=settings_fixture.webservice_url, 
                             method="POST", 
-                            json=[{"UUID": str(uuid.uuid4())}])
+                            json=[{"message": "test message", 
+                                   "UUID": str(uuid.uuid4())}])
 
-    async with httpx.AsyncClient() as client:
-        response = await register_container_spec(container_spec_fixture, 
-                                                 settings_fixture)
-        assert response.status_code == 200
-        assert is_valid_uuid(response.json()[0]['UUID'])
+    # async with httpx.AsyncClient() as client:
+    container_id = await callback_router.register_container_spec(container_spec_fixture, 
+                                                                 settings_fixture)
+    assert is_valid_uuid(container_id)
 
 
-# testing callback_router
+@pytest.mark.asyncio
+@patch.object(httpx.AsyncClient, 'post')
+async def test_register_container_spec_patch(mock_post, 
+                                             settings_fixture, 
+                                             container_spec_fixture):
+    
+    mock_post.add_response(url=settings_fixture.webservice_url, 
+                           method="POST", 
+                           json=[{"message": "test message", 
+                                  "UUID": str(uuid.uuid4())}])
+    
+    container_id = await callback_router.register_container_spec(container_spec_fixture, 
+                                                                 settings_fixture)
+    assert is_valid_uuid(container_id)
 
-# @pytest.mark.asyncio
-# @mock.patch(httpx.AsyncClient().post)
-# async def test_registering_spec_with_webservice(mock_post):
-#     mock_post.response.status_code = 200
-#     pdb.set_trace()
-#     response = await register_container_spec(container_spec_fixture, get_settings())
-#     assert response.status_code == 200
-#     assert response.json() == {"uuid": "Hello World"}
-# 
 
 def is_valid_uuid(uuid_to_test, version=4):
     """
@@ -110,3 +124,19 @@ def is_valid_uuid(uuid_to_test, version=4):
     except ValueError:
         return False
     return str(uuid_obj) == uuid_to_test
+
+
+# pytest-httpserver
+
+# add in reference to register_container_spec()
+# @pytest.mark.asyncio
+# async def test_httpx_url(http_server: HTTPServer):
+#     http_server.expect_request(settings_fixture.webservice_url,
+#                                method='POST'
+#                                ).respond_with_json([{"UUID": str(uuid.uuid4())}])
+# 
+#     async with httpx.AsyncClient() as client:
+#         response = await register_container_spec(container_spec_fixture, 
+#                                                  settings_fixture)
+#         assert response.status_code == 200
+#         assert is_valid_uuid(response.json()[0]['UUID'])

@@ -6,6 +6,8 @@ from uuid import UUID
 from typing import Optional, List
 from pydantic import BaseModel, constr
 
+# from . import callback_router
+
 
 class ContainerState(str, Enum):
     pending = 'pending'
@@ -49,6 +51,39 @@ class ContainerSpec(BaseModel):
                 v.sort()
         canonical = json.dumps(tmp, sort_keys=True)
         return hashlib.sha256(canonical.encode()).hexdigest()
+
+
+class Container(BaseModel):
+
+    container_spec: ContainerSpec
+    """
+    id = Column(String, primary_key=True)
+    last_used = Column(DateTime)
+    state = Column(Enum(ContainerState))
+    specification = Column(String)
+    docker_size = Column(Integer)
+    singularity_size = Column(Integer)
+    builder = Column(String)
+    """
+
+    def proceed_to_build(self, RUN_ID):
+        if self.state == ContainerState.ready:
+            # nothing to do
+            return False
+        elif self.state == ContainerState.failed:
+            # already failed, not going to change
+            return False
+        elif (self.state == ContainerState.building
+                and self.builder == RUN_ID):
+            # build already started by this server
+            return False
+        elif self.state == ContainerState.building:
+            # build from a previous (crashed) server, clean up
+            callback_router.remove_build(self.container_id)
+
+        self.state = ContainerState.building
+        self.builder = RUN_ID
+        return True
 
 
 class StatusResponse(BaseModel):

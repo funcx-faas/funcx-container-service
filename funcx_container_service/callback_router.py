@@ -1,15 +1,18 @@
 from typing import Optional
+import uuid
+import datetime
 
 from fastapi import APIRouter, FastAPI, Depends
 from pydantic import BaseModel, HttpUrl
 import httpx
 
+# from .build import Build
 from .models import ContainerSpec
 from .config import Settings
 
-import pdb
 
-# app = FastAPI()
+class container_object_json(BaseModel):
+    container_id: str
 
 
 class ContainerSpecReceived(BaseModel):
@@ -25,37 +28,25 @@ class InvoiceEventReceived(BaseModel):
     ok: bool
 
 
+query_container_callback_router = APIRouter()
+
+
 build_callback_router = APIRouter()
 
 
-@build_callback_router.post('f{settings.webservice_url}/containers/build/', 
+@build_callback_router.post('f{Settings.webservice_url}/container/build/',
                             response_model=ContainerSpecReceived
                             )
 def store_build_spec(body: ContainerSpec, 
                      settings: Settings):
-    pdb.set_trace()
     pass
 
 
-# @app.post("/invoices/", callbacks=invoices_callback_router.routes)
-# def create_invoice(invoice: Invoice, callback_url: Optional[HttpUrl] = None):
-    """
-    Create an invoice.
-
-    This will (let's imagine) let the API user (some external developer) create an
-    invoice.
-
-    And this path operation will:
-
-    * Send the invoice to the client.
-    * Collect the money from the client.
-    * Send a notification back to the API user (the external developer), as a callback.
-        * At this point is that the API will somehow send a POST request to the
-            external API with the notification of the invoice event
-            (e.g. "payment successful").
-    """
-    # Send the invoice, collect the money, send the notification (the callback)
-#     return {"msg": "Invoice received"}
+@build_callback_router.get('f{Settings.webservice_url}/container/',
+                           response_model=ContainerSpecReceived
+                           )
+def store_container(body: container_object_json):
+    pass
 
 
 async def register_container_spec(spec: ContainerSpec,
@@ -66,7 +57,9 @@ async def register_container_spec(spec: ContainerSpec,
     async with httpx.AsyncClient() as client:
         response = await client.post(f'{settings.webservice_url}/register_container_spec',
                                      data=spec)
-    return response
+        
+        container_id = response.json()[0]['UUID']
+    return container_id
 
 
 def register_container_spec_requests(spec: ContainerSpec,
@@ -77,4 +70,27 @@ def register_container_spec_requests(spec: ContainerSpec,
     import requests
     response = requests.post(f'{settings.webservice_url}/register_container_spec',
                              data=spec)
-    return response
+    container_id = response.json()[0]['UUID']
+    return container_id
+
+
+async def add_build(container_id, settings: Settings):
+    build = Build()
+    build.id = str(uuid.uuid4())
+    build.container_hash = container_id
+
+    # submit build back to webservice
+    async with httpx.AsyncClient() as client:
+        response = await client.post(f'{settings.webservice_url}/register_container_spec',
+                                     data=build)
+    
+    # leftover from db implementation
+    # db.add(build)
+    # db.commit()  # needed to get relationships
+    build.container.last_used = datetime.now()  # <-- # from database.add_build - but why are we setting this before writing???
+    
+    return build.id
+
+
+async def remove_build(container_id):
+    pass
