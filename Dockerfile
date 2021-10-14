@@ -1,17 +1,16 @@
-FROM python:3.7-alpine
-RUN apk update && \
-    apk add --no-cache gcc musl-dev linux-headers && \
-    apk add postgresql-dev libffi-dev g++ make libressl-dev git
+FROM python:3.7
+RUN apt-get update && \
+    apt-get install -y  gcc musl-dev && \
+    apt-get install -y  postgresql libffi-dev g++ make git
 
-# Create a group and user
-RUN addgroup -S http && adduser -S http -G http
+RUN addgroup http && useradd http -g http
 
 WORKDIR /opt/
 
-COPY ./requirements.txt /tmp/
-RUN pip install -r /tmp/requirements.txt
+COPY ./requirements.txt .
+RUN pip install -r ./requirements.txt
 
-COPY ./funcx_container_service/ ./
+COPY ./funcx_container_service/ ./funcx_container_service/
 
 USER http
 EXPOSE 5000
