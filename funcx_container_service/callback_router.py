@@ -1,14 +1,17 @@
 from typing import Optional
 import uuid
 import datetime
+import json
+import pdb
 
 from fastapi import APIRouter, FastAPI, Depends
 from pydantic import BaseModel, HttpUrl
 import httpx
 
 # from .build import Build
-from .models import ContainerSpec
+from .import container
 from .config import Settings
+from .models import ContainerSpec
 
 
 class container_object_json(BaseModel):
@@ -57,8 +60,9 @@ async def register_container_spec(spec: ContainerSpec,
     async with httpx.AsyncClient() as client:
         response = await client.post(f'{settings.webservice_url}/register_container_spec',
                                      data=spec)
-        
-        container_id = response.json()[0]['UUID']
+    pdb.set_trace()
+    container_id = response.json()['UUID']
+
     return container_id
 
 
@@ -75,21 +79,26 @@ def register_container_spec_requests(spec: ContainerSpec,
 
 
 async def add_build(container_id, settings: Settings):
-    build = Build()
-    build.id = str(uuid.uuid4())
-    build.container_hash = container_id
 
-    # submit build back to webservice
-    async with httpx.AsyncClient() as client:
-        response = await client.post(f'{settings.webservice_url}/register_container_spec',
-                                     data=build)
+    build_id = str(uuid.uuid4())
+
+    build_dict = {}
+    build_dict['container_id'] = container_id
+    build_dict['build_id'] = build_id
     
+    build_json = json.dumps(build_dict)
+    # submit build back to webservice
+    
+    async with httpx.AsyncClient() as client:
+        response = await client.post(f'{settings.webservice_url}/register_build',
+                                     json=build_json)
+
     # leftover from db implementation
     # db.add(build)
     # db.commit()  # needed to get relationships
-    build.container.last_used = datetime.now()  # <-- # from database.add_build - but why are we setting this before writing???
+    # build.container.last_used = datetime.now()  # <-- # from database.add_build - but why are we setting this before writing???
     
-    return build.id
+    return (build_id, response)
 
 
 async def remove_build(container_id):

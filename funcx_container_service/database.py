@@ -14,7 +14,7 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, relationship
 from sqlalchemy.pool import StaticPool
 
-from .models import ContainerState, StatusResponse
+from .models import StatusResponse
 from . import build
 
 
@@ -27,20 +27,6 @@ _engine = create_engine(
         connect_args={'check_same_thread': False},
         poolclass=StaticPool)
 Session.configure(bind=_engine)
-
-
-class Container(Base):
-    __tablename__ = 'containers'
-
-    id = Column(String, primary_key=True)
-    last_used = Column(DateTime)
-    state = Column(Enum(ContainerState))
-    specification = Column(String)
-    docker_size = Column(Integer)
-    singularity_size = Column(Integer)
-    builder = Column(String)
-
-    builds = relationship('Build', back_populates='container')
 
 
 class Build(Base):
@@ -155,9 +141,12 @@ async def status(db, build_id):
 
 
 async def start_build(db, container_id):
+    # query container object from db
     container = db.query(Container).filter(
             Container.id == container_id).populate_existing(
             ).with_for_update().one()
+
+    # if container.state is building, remove the build
     try:
         if container.state == ContainerState.ready:
             # nothing to do
@@ -180,4 +169,4 @@ async def start_build(db, container_id):
         db.commit()
 
 
-Base.metadata.create_all(_engine)
+# Base.metadata.create_all(_engine)

@@ -1,6 +1,6 @@
 from sqlalchemy import and_, func
 from . import database, build
-from .models import ContainerSpec, ContainerState
+from .container import ContainerState, ContainerSpec
 
 
 MAX_STORAGE = None

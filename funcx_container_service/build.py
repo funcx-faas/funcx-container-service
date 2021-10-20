@@ -11,13 +11,23 @@ from pathlib import Path
 from datetime import datetime
 from docker.errors import ImageNotFound
 from fastapi import HTTPException
-from . import database, landlord
-from .models import ContainerSpec, ContainerState
+from . import landlord, callback_router
+from .models import ContainerSpec
+from .container import Container, ContainerState
 
 
 REPO2DOCKER_CMD = 'jupyter-repo2docker --no-run --image-name {} {}'
 SINGULARITY_CMD = 'singularity build --force {} docker-daemon://{}:latest'
 DOCKER_BASE_URL = 'unix://var/run/docker.sock'
+
+
+class Build():
+    pass
+    # id = Column(String, primary_key=True)
+    # container_hash = Column(String, ForeignKey('containers.id'))
+    # Add auth/user info
+
+    # container = relationship('Container', back_populates='builds')
 
 
 def s3_connection():
@@ -231,52 +241,32 @@ async def make_ecr_url(db, ecr, build_id):
     return container.id, docker_name(container.id)
 
 
-async def simple_background_build(container_id, tarball):
-    pdb.set_trace()
-    with database.session_scope() as db:
-        """
-        - if db says container build process is ready or failed, then return
-        - if db says container build process is already started and in current instance
-          of this server (basedd on 'RUN_ID'(???)), then return
-        - if db says container build process is already started but RUN_ID's don't
-          match (previous instance), delete the 'build' from the database and continue
-          TODO: 'RUN_ID unique to this particular instance - (random uuid) - not scalable?'
-        """
-        if not await database.start_build(db, container_id):
-            return
-        container = db.query(database.Container).filter(
-                database.Container.id == container_id).one()
+async def simple_background_build(container: Container):
 
-        s3 = s3_connection()
+    if container.start_build():
+        
         docker_client = docker.APIClient(base_url=DOCKER_BASE_URL)
         try:
-            container.docker_size = await docker_build(s3, container, tarball)
+            container.docker_size = await docker_simple_build(container)
             if container.docker_size is None:
                 container.state = ContainerState.failed
                 return
             container.singularity_size = await singularity_build(
-                    s3, container_id)
+                    s3, container.container_id)
             if container.singularity_size is None:
                 container.state = ContainerState.failed
                 return
             await asyncio.to_thread(docker_client.push,
-                                    docker_name(container_id))
+                                    docker_name(container.container_id))
             container.state = ContainerState.ready
         finally:
             container.builder = None
-            await landlord.cleanup(db)
+            await landlord.cleanup()
 
 
 async def background_build(container_id, tarball):
     with database.session_scope() as db:
-        """
-        - if db says container build process is ready or failed, then return
-        - if db says container build process is already started and in current instance
-          of this server (basedd on 'RUN_ID'(???)), then return
-        - if db says container build process is already started but RUN_ID's don't
-          match (previous instance), delete the 'build' from the database and continue
-          TODO: 'RUN_ID unique to this particular instance - (random uuid) - not scalable?'
-        """
+        
         if not await database.start_build(db, container_id):
             return
         container = db.query(database.Container).filter(
