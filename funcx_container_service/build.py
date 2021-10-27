@@ -14,6 +14,7 @@ from fastapi import HTTPException
 from . import landlord, callback_router
 from .models import ContainerSpec
 from .container import Container, ContainerState
+from .config import Settings
 
 
 REPO2DOCKER_CMD = 'jupyter-repo2docker --no-run --image-name {} {}'
@@ -84,6 +85,53 @@ def env_from_spec(spec):
     if spec.pip:
         out["dependencies"].append({"pip": list(spec.pip)})
     return out
+
+
+async def simple_background_build(container: Container, settings: Settings):
+    # check state of build and register w/ webservice if ready to proceed
+    if container.start_build(settings):
+        
+        docker_client = docker.APIClient(base_url=DOCKER_BASE_URL)
+        try:
+            container.docker_size = await docker_simple_build(container)
+            if container.docker_size is None:
+                container.state = ContainerState.failed
+                return
+            container.singularity_size = await singularity_build(
+                    s3, container.container_id)
+            if container.singularity_size is None:
+                container.state = ContainerState.failed
+                return
+            await asyncio.to_thread(docker_client.push,
+                                    docker_name(container.container_id))
+            container.state = ContainerState.ready
+        finally:
+            container.builder = None
+            await landlord.cleanup()
+
+
+async def docker_simple_build(container):
+    with tempfile.TemporaryDirectory() as tmp:
+        tmp = Path(tmp)
+        if container.specification:
+            container_size = await build_spec(
+                    container.container_id,
+                    ContainerSpec.parse_raw(container.specification),
+                    tmp)
+        else:
+            if not tarball:
+                download = tempfile.NamedTemporaryFile()
+                tarball = download.name
+                await asyncio.to_thread(
+                        s3.download_file, 'repos', container.id, tarball)
+            container_size = await build_tarball(
+                    s3,
+                    container.id,
+                    tarball,
+                    tmp)
+            # just to be safe
+            os.unlink(tarball)
+    return container_size
 
 
 async def build_spec(s3, container_id, spec, tmp_dir):
@@ -239,29 +287,6 @@ async def make_ecr_url(db, ecr, build_id):
     container.last_used = datetime.now()
 
     return container.id, docker_name(container.id)
-
-
-async def simple_background_build(container: Container):
-
-    if container.start_build():
-        
-        docker_client = docker.APIClient(base_url=DOCKER_BASE_URL)
-        try:
-            container.docker_size = await docker_simple_build(container)
-            if container.docker_size is None:
-                container.state = ContainerState.failed
-                return
-            container.singularity_size = await singularity_build(
-                    s3, container.container_id)
-            if container.singularity_size is None:
-                container.state = ContainerState.failed
-                return
-            await asyncio.to_thread(docker_client.push,
-                                    docker_name(container.container_id))
-            container.state = ContainerState.ready
-        finally:
-            container.builder = None
-            await landlord.cleanup()
 
 
 async def background_build(container_id, tarball):
