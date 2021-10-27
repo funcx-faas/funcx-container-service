@@ -1,3 +1,5 @@
+import pdb
+
 from . import build, callback_router
 from .models import ContainerSpec, ContainerState
 
@@ -21,10 +23,10 @@ class Container():
     builder = Column(String)
     """
 
-    def register(self, settings):
-        self.container_id = callback_router.register_container_spec(self.container_spec, settings)
+    async def register(self, settings):
+        self.container_id = await callback_router.register_container_spec(self.container_spec, settings)
 
-    def start_build(self):
+    def start_build(self, settings):
         try:
             if self.container_state == ContainerState.ready:
                 # nothing to do
@@ -46,4 +48,4 @@ class Container():
             return True
 
         finally:
-            callback_router.update_container(self)
+            callback_router.update_container(self, settings)

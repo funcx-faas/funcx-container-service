@@ -51,6 +51,12 @@ class ContainerState(str, Enum):
     failed = 'failed'
 
 
+class BuildResponse(BaseModel):
+    container_id: UUID
+    build_id: UUID
+    msg: Optional[str] = None
+
+
 class StatusResponse():
     """API response giving a container's status"""
     id: UUID

@@ -1,15 +1,11 @@
-from typing import Optional
 import uuid
-import datetime
 import json
 import pdb
 
-from fastapi import APIRouter, FastAPI, Depends
-from pydantic import BaseModel, HttpUrl
+from fastapi import APIRouter
+from pydantic import BaseModel
 import httpx
 
-# from .build import Build
-from .import container
 from .config import Settings
 from .models import ContainerSpec
 
@@ -79,6 +75,11 @@ def register_container_spec_requests(spec: ContainerSpec,
 
 
 async def add_build(container_id, settings: Settings):
+
+    """
+    Generates and assigns a uuid as a 'build_id' that, in combination with the 
+    container_id, can be used to track the building of a container.
+    """
 
     build_id = str(uuid.uuid4())
 
