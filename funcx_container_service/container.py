@@ -11,6 +11,7 @@ class Container():
         self.build_status = None
         self.container_state = None
         self.container_build_process = None
+        self.container_state = ContainerState.pending
 
     """
     from definition of container object in database.py:

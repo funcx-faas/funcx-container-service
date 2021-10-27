@@ -36,7 +36,7 @@ async def simple_build(spec: ContainerSpec,
     """
     print(f'run_id: {RUN_ID}')
 
-    # instantiate container o
+    # instantiate container object
     container = Container(spec)
     
     # register spec with webservice

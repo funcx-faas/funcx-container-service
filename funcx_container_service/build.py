@@ -88,23 +88,27 @@ def env_from_spec(spec):
 
 
 async def simple_background_build(container: Container, settings: Settings):
-    # check state of build and register w/ webservice if ready to proceed
+    """
+    check state of build from the webservice. If status is appropriate (as 
+    indicated by container.start_build()) proceed to construct the container
+    using repo2docker
+    """
     if container.start_build(settings):
         
         docker_client = docker.APIClient(base_url=DOCKER_BASE_URL)
         try:
+            # build container with docker
             container.docker_size = await docker_simple_build(container)
             if container.docker_size is None:
                 container.state = ContainerState.failed
+                # TODO: capture and return output from docker_client.version()
                 return
-            container.singularity_size = await singularity_build(
-                    s3, container.container_id)
-            if container.singularity_size is None:
-                container.state = ContainerState.failed
-                return
+            
+            # on successful build, push container to registry 
             await asyncio.to_thread(docker_client.push,
                                     docker_name(container.container_id))
             container.state = ContainerState.ready
+        
         finally:
             container.builder = None
             await landlord.cleanup()
