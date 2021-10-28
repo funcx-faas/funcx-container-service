@@ -35,25 +35,30 @@ async def mocked_register_container_spec(spec, settings):
 
 
 @asyncio.coroutine
-async def mocked_add_build(container_id, settings):
+async def mocked_register_build(container_id, settings):
     build_id = str(uuid.uuid4())
     response = 200
     return (build_id, response)
 
 
 # @patch.object(callback_router, 'register_container_spec')
-@mock.patch('funcx_container_service.container.callback_router.register_container_spec', 
-            side_effect=mocked_register_container_spec)
-@mock.patch('funcx_container_service.container.callback_router.add_build', 
-            side_effect=mocked_add_build)
-def test_simple_build(mock_register_container_spec, mock_add_build):
-    mock_register_container_spec.return_value = str(uuid.uuid4())
-    
+# @mock.patch('funcx_container_service.container.callback_router.register_container_spec', 
+#             side_effect=mocked_register_container_spec)
+@mock.patch('funcx_container_service.container.callback_router.register_build', 
+            side_effect=mocked_register_build)
+def test_simple_build(mock_register_build):
+    # fix to return <class 'httpx.Response'>
+    mock_register_build.return_value = str(uuid.uuid4())
+    mock_register_build.status_code = 200
+
+    container_id = str(uuid.uuid4())
+
     response = client.post("/build",
                            headers={"accept": "application/json", 
                                     "Content-Type": "application/json"},
                            json={
                                   "container_type": "Docker",
+                                  "container_id": container_id,
                                   "apt": [
                                     "string"
                                   ],
@@ -65,10 +70,14 @@ def test_simple_build(mock_register_container_spec, mock_add_build):
                                   ]
                                 }
                            )
+
     pdb.set_trace()
-    assert response.status_code == 200
-    assert is_valid_uuid(response.json())
     
+    assert response.status_code == 200
+    assert is_valid_uuid(response.json()['container_id'])
+    assert response.json()['container_id'] == container_id
+    assert is_valid_uuid(response.json()['build_id'])
+
 
 def is_valid_uuid(uuid_to_test, version=4):
     """

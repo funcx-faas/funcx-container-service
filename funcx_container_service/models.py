@@ -31,6 +31,7 @@ class ContainerSpec(BaseModel):
     # regex borrowed from repo2docker (sort of...)
     # https://github.com/jupyterhub/repo2docker/blob/560b1d96a0e39cb8de53cb41a7c2d8d23384eb82/repo2docker/buildpacks/base.py#L675
     container_type: ContainerRuntime
+    container_id: UUID
     apt: Optional[List[constr(regex=r'^[a-z0-9.+-]+$')]]  # noqa: F722
     pip: Optional[List[str]]
     conda: Optional[List[str]]
@@ -51,9 +52,16 @@ class ContainerState(str, Enum):
     failed = 'failed'
 
 
+class BuildSpec(BaseModel):
+    container_id: UUID
+    build_id: UUID
+    RUN_ID: UUID
+
+
 class BuildResponse(BaseModel):
     container_id: UUID
     build_id: UUID
+    RUN_ID: UUID
     msg: Optional[str] = None
 
 
