@@ -111,6 +111,7 @@ async def simple_background_build(container: Container, settings: Settings):
         
         finally:
             container.builder = None
+            # TODO: update container status w/ webservice via callback_router.py
             await landlord.cleanup()
 
 
@@ -138,13 +139,44 @@ async def docker_simple_build(container):
     return container_size
 
 
-async def build_spec(s3, container_id, spec, tmp_dir):
+async def build_spec(container_id, spec, tmp_dir):
+    """
+    Write the build specifications out to a file in the temp directory that can 
+    be accessed by repo2docker for the build process
+    """
     if spec.apt:
         with (tmp_dir / 'apt.txt').open('w') as f:
             f.writelines([x + '\n' for x in spec.apt])
     with (tmp_dir / 'environment.yml').open('w') as f:
         json.dump(env_from_spec(spec), f, indent=4)
-    return await repo2docker_build(s3, container_id, tmp_dir)
+    return await repo2docker_build(container_id, tmp_dir)
+
+
+async def repo2docker_build(s3, container_id, temp_dir):
+    """
+    Pass the file with the build specs to repo2docker to create the build and
+    collect the resulting log information
+    """
+    with tempfile.NamedTemporaryFile() as out:
+        proc = await asyncio.create_subprocess_shell(
+                REPO2DOCKER_CMD.format(docker_name(container_id), temp_dir),
+                stdout=out, stderr=out)
+        await proc.communicate()
+
+        out.flush()
+        out.seek(0)
+
+        # TODO: replace upload of logs to S3 with capture in local logging, as
+        # well as passing back to webservice
+        await asyncio.to_thread(
+                s3_upload, s3, out.name, 'docker-logs', container_id)
+
+    if proc.returncode != 0:
+        return None
+    return docker_size(container_id)
+
+###
+# Additional functionality not yet needed for v1 -SW
 
 
 async def build_tarball(s3, container_id, tarball, tmp_dir):
@@ -156,23 +188,6 @@ async def build_tarball(s3, container_id, tarball, tmp_dir):
         raise HTTPException(status_code=415, detail="Invalid tarball")
 
     return await repo2docker_build(s3, container_id, tmp_dir)
-
-
-async def repo2docker_build(s3, container_id, temp_dir):
-    with tempfile.NamedTemporaryFile() as out:
-        proc = await asyncio.create_subprocess_shell(
-                REPO2DOCKER_CMD.format(docker_name(container_id), temp_dir),
-                stdout=out, stderr=out)
-        await proc.communicate()
-
-        out.flush()
-        out.seek(0)
-        await asyncio.to_thread(
-                s3_upload, s3, out.name, 'docker-logs', container_id)
-
-    if proc.returncode != 0:
-        return None
-    return docker_size(container_id)
 
 
 async def singularity_build(s3, container_id):
