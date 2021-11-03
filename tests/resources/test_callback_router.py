@@ -16,6 +16,7 @@ from funcx_container_service.models import ContainerSpec
 def container_spec_fixture():
     mock_spec = ContainerSpec(
             container_type="Docker",
+            container_id=uuid.uuid4(),
             apt=['package1', 'package2']
         )
     return mock_spec
@@ -24,7 +25,7 @@ def container_spec_fixture():
 @pytest.fixture
 def settings_fixture():
     settings = Settings()
-    settings.webservice_url = 'http://testwebservice.com'
+    settings.WEBSERVICE_URL = 'http://testwebservice.com'
     settings.app_name = 'mocked_settings_app'
     settings.admin_email = 'testing_admin@example.com'
     return settings
@@ -60,16 +61,16 @@ calling the external function 'callback_router.register_container_spec()'
 async def test_something_async(httpx_mock, settings_fixture):
 
     httpx_mock.add_response(method="POST",
-                            url=settings_fixture.webservice_url,
-                            json=[{"message": 
-                                   "test message", "UUID": str(uuid.uuid4())}])
+                            url=settings_fixture.WEBSERVICE_URL,
+                            json={"message": 
+                                   "test message", "UUID": str(uuid.uuid4())})
 
     async with httpx.AsyncClient() as client:
-        response = await client.post(settings_fixture.webservice_url)
+        response = await client.post(settings_fixture.WEBSERVICE_URL)
 
     assert response.status_code == 200
     assert response.json()['message'] == 'test message'
-    assert is_valid_uuid(response.json()[0]['UUID'])
+    assert is_valid_uuid(response.json()['UUID'])
 
 
 """
@@ -79,10 +80,10 @@ function 'callback_router.register_container_spec()'
 @pytest.mark.asyncio
 async def test_register_container_spec(httpx_mock, settings_fixture, container_spec_fixture):
     
-    httpx_mock.add_response(url=f'{settings_fixture.webservice_url}/register_container_spec',
+    httpx_mock.add_response(url=f'{settings_fixture.WEBSERVICE_URL}/register_container_spec',
                             method="POST", 
-                            json=[{"message": "test message", 
-                                   "UUID": str(uuid.uuid4())}])
+                            json={"message": "test message", 
+                                   "UUID": str(uuid.uuid4())})
     
     # async with httpx.AsyncClient() as client:
     container_id = await callback_router.register_container_spec(container_spec_fixture, 
@@ -96,10 +97,10 @@ async def test_register_container_spec_patch(mock_post,
                                              settings_fixture, 
                                              container_spec_fixture):
     
-    mock_post.add_response(url=settings_fixture.webservice_url, 
+    mock_post.add_response(url=settings_fixture.WEBSERVICE_URL, 
                            method="POST", 
-                           json=[{"message": "test message", 
-                                  "UUID": str(uuid.uuid4())}])
+                           json={"message": "test message", 
+                                  "UUID": str(uuid.uuid4())})
     
     container_id = await callback_router.register_container_spec(container_spec_fixture, 
                                                                  settings_fixture)
@@ -109,15 +110,14 @@ async def test_register_container_spec_patch(mock_post,
 @pytest.mark.asyncio
 @patch.object(httpx.AsyncClient, 'post')
 async def test_add_build(mock_post, container_id_fixture, settings_fixture):
-    mock_post.add_response(url=settings_fixture.webservice_url + 'register_build', 
+    mock_post.add_response(url=settings_fixture.WEBSERVICE_URL + 'register_build', 
                            method="POST", 
-                           json=[{"message": "build id received!"}])
+                           json={"message": "build id received!"})
 
     build_id, response = await callback_router.add_build(container_id_fixture,
-                                               settings_fixture)
+                                                         settings_fixture)
     print(build_id)
     assert is_valid_uuid(build_id)
-    pdb.set_trace()
     assert response.json['message'] == 'build id received!'
 
 
