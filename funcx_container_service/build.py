@@ -5,6 +5,7 @@ import tarfile
 import tempfile
 import docker
 import boto3
+from uuid import UUID
 import pdb
 
 from pathlib import Path
@@ -87,13 +88,15 @@ def env_from_spec(spec):
     return out
 
 
-async def simple_background_build(container: Container, settings: Settings):
+async def simple_background_build(container: Container, 
+                                  settings: Settings, 
+                                  RUN_ID: UUID):
     """
     check state of build from the webservice. If status is appropriate (as 
     indicated by container.start_build()) proceed to construct the container
     using repo2docker
     """
-    if container.start_build(settings):
+    if container.start_build(RUN_ID, settings):
         
         docker_client = docker.APIClient(base_url=DOCKER_BASE_URL)
         try:

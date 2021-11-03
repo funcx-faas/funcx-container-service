@@ -39,7 +39,7 @@ class Container():
                                                             settings)
         return build_result
 
-    def start_build(self, settings):
+    def start_build(self, RUN_ID, settings):
         try:
             if self.container_state == ContainerState.ready:
                 # nothing to do
