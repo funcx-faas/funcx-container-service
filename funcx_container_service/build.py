@@ -5,6 +5,7 @@ import tarfile
 import tempfile
 import docker
 import boto3
+import logging
 from uuid import UUID
 import pdb
 
@@ -21,6 +22,8 @@ from .config import Settings
 REPO2DOCKER_CMD = 'jupyter-repo2docker --no-run --image-name {} {}'
 SINGULARITY_CMD = 'singularity build --force {} docker-daemon://{}:latest'
 DOCKER_BASE_URL = 'unix://var/run/docker.sock'
+
+log = logging.getLogger("funcx_container_service")
 
 
 class Build():
@@ -92,10 +95,13 @@ async def simple_background_build(container: Container,
                                   settings: Settings, 
                                   RUN_ID: UUID):
     """
-    check state of build from the webservice. If status is appropriate (as 
-    indicated by container.start_build()) proceed to construct the container
-    using repo2docker
+    Most basic of build processes passed to a task through route activation.
+    Start by checking state of build from the webservice. If status is 
+    appropriate (as indicated by container.start_build()) proceed to construct 
+    the container using repo2docker
     """
+
+    # check container.container_state to see if we should build
     if container.start_build(RUN_ID, settings):
         
         docker_client = docker.APIClient(base_url=DOCKER_BASE_URL)
@@ -155,11 +161,12 @@ async def build_spec(container_id, spec, tmp_dir):
     return await repo2docker_build(container_id, tmp_dir)
 
 
-async def repo2docker_build(s3, container_id, temp_dir):
+async def repo2docker_build(container_id, temp_dir):
     """
     Pass the file with the build specs to repo2docker to create the build and
     collect the resulting log information
     """
+    # TODO pipe stdout, stderr from async process to logging. Good luck with that.
     with tempfile.NamedTemporaryFile() as out:
         proc = await asyncio.create_subprocess_shell(
                 REPO2DOCKER_CMD.format(docker_name(container_id), temp_dir),
@@ -171,10 +178,11 @@ async def repo2docker_build(s3, container_id, temp_dir):
 
         # TODO: replace upload of logs to S3 with capture in local logging, as
         # well as passing back to webservice
-        await asyncio.to_thread(
-                s3_upload, s3, out.name, 'docker-logs', container_id)
+        logging.info(f'logs from repo2docker stored at {out}')
 
     if proc.returncode != 0:
+        logging.error(f'Return code {proc.returncode} produced while running \
+            repo2docker for container_id: {container_id}')
         return None
     return docker_size(container_id)
 
