@@ -57,3 +57,4 @@ class LogConfig(BaseModel):
     loggers = {
         "funcx_container_service": {"handlers": ["default"], "level": LOG_LEVEL},
     }
+    
