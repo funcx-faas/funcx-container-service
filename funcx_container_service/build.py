@@ -112,7 +112,7 @@ async def simple_background_build(container: Container, settings: Settings):
         finally:
             container.builder = None
             # TODO: update container status w/ webservice via callback_router.py
-            await landlord.cleanup()
+            pass
 
 
 async def docker_simple_build(container):
@@ -123,19 +123,19 @@ async def docker_simple_build(container):
                     container.container_id,
                     ContainerSpec.parse_raw(container.specification),
                     tmp)
-        else:
-            if not tarball:
-                download = tempfile.NamedTemporaryFile()
-                tarball = download.name
-                await asyncio.to_thread(
-                        s3.download_file, 'repos', container.id, tarball)
-            container_size = await build_tarball(
-                    s3,
-                    container.id,
-                    tarball,
-                    tmp)
-            # just to be safe
-            os.unlink(tarball)
+        # else:
+        #     if not tarball:
+        #         download = tempfile.NamedTemporaryFile()
+        #         tarball = download.name
+        #         await asyncio.to_thread(
+        #                 s3.download_file, 'repos', container.id, tarball)
+        #     container_size = await build_tarball(
+        #             s3,
+        #             container.id,
+        #             tarball,
+        #             tmp)
+        #     # just to be safe
+        #     os.unlink(tarball)
     return container_size
 
 
@@ -236,6 +236,7 @@ async def docker_build(s3, container, tarball):
             os.unlink(tarball)
     return container_size
 
+"""
 
 async def make_s3_url(db, s3, bucket, build_id, is_container=True):
     for row in db.query(database.Build).filter(database.Build.id == build_id):
@@ -359,3 +360,5 @@ async def remove(db, container_id):
                                 repositoryName=container_id, force=True)
     except ecr.exceptions.RepositoryNotFoundException:
         pass
+"""
+
