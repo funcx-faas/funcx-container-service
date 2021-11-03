@@ -15,6 +15,7 @@ def container_id_fixture():
 
 @pytest.fixture
 def temp_dir_fixture():
+    # TODO: Make sure the proper handling of path info is reapeated in build.docker_simple_build()!!!
     tmp = tempfile.TemporaryDirectory()
     tmp_path = Path(tmp.name)
     return tmp_path
