@@ -44,7 +44,7 @@ async def register_container_spec(spec: ContainerSpec,
     Send container spec to webservice usings requests, get container ID as response
     """
     async with httpx.AsyncClient() as client:
-        response = await client.post(f'{settings.WEBSERVICE_URL}/register_container_spec',
+        response = await client.post(f'{settings.WEBSERVICE_URL.strip("/")}/register_container_spec',
                                      data=spec)
     container_id = response.json()['UUID']
 
@@ -57,13 +57,13 @@ def register_container_spec_requests(spec: ContainerSpec,
     Send container spec to webservice usings requests, get container ID as response
     """
     import requests
-    response = requests.post(f'{settings.WEBSERVICE_URL}/register_container_spec',
+    response = requests.post(f'{settings.WEBSERVICE_URL.strip("/")}/register_container_spec',
                              data=spec)
     container_id = response.json()[0]['UUID']
     return container_id
 
 
-@build_callback_router.post(f'{Settings().WEBSERVICE_URL}/register_build')
+@build_callback_router.post(f'{Settings().WEBSERVICE_URL.strip("/")}/register_build')
 def store_build_spec(body: BuildSpec):
     pass
 

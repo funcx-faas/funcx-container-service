@@ -11,7 +11,7 @@ from pathlib import Path
 from datetime import datetime
 from docker.errors import ImageNotFound
 from fastapi import HTTPException
-from . import landlord, callback_router
+from . import callback_router
 from .models import ContainerSpec
 from .container import Container, ContainerState
 from .config import Settings
