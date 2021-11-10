@@ -1,5 +1,5 @@
 import uuid
-from . import build, callback_router
+from . import callback_router
 from .models import BuildSpec, ContainerSpec, ContainerState
 
 
@@ -54,7 +54,10 @@ class Container():
             elif self.container_state == ContainerState.building:
                 # build from a previous (crashed) server, clean up
                 # await build.remove(db, container_id)
-                build.remove(self.container_id)
+
+                # TODO: removed due to circular import, but what does this do?
+                # build.remove(self.container_id)
+                pass
 
             self.container_state = ContainerState.building
             self.container_build_process = RUN_ID
