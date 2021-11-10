@@ -1,6 +1,4 @@
-import uuid
 import json
-import pdb
 import logging
 from pprint import pformat
 
@@ -67,11 +65,11 @@ def register_container_spec_requests(spec: ContainerSpec,
 def store_build_spec(body: BuildSpec):
     pass
 
-    
+
 async def register_build(build_spec: BuildSpec, settings: Settings):
 
     """
-    Generates and assigns a uuid as a 'build_id' that, in combination with the 
+    Generates and assigns a uuid as a 'build_id' that, in combination with the
     container_id, can be used to track the building of a container.
     """
 
@@ -79,12 +77,12 @@ async def register_build(build_spec: BuildSpec, settings: Settings):
     build_dict['container_id'] = str(build_spec.container_id)
     build_dict['build_id'] = str(build_spec.build_id)
     build_dict['RUN_ID'] = str(build_spec.RUN_ID)
-    
+
     build_json = json.dumps(build_dict)
     # submit build back to webservice
 
     log.info(pformat(build_json))
-    
+
     async with httpx.AsyncClient() as client:
         response = await client.post(f'{settings.WEBSERVICE_URL}/register_build',
                                      json=build_json)
@@ -92,8 +90,9 @@ async def register_build(build_spec: BuildSpec, settings: Settings):
     # leftover from db implementation
     # db.add(build)
     # db.commit()  # needed to get relationships
-    # build.container.last_used = datetime.now()  # <-- # from database.add_build - but why are we setting this before writing???
-    
+    # build.container.last_used = datetime.now()  # <-- # from database.add_build
+    # - but why are we setting this before writing???
+
     return response
 
 

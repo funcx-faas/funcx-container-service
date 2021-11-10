@@ -7,13 +7,11 @@ import docker
 import boto3
 import logging
 from uuid import UUID
-import pdb
 
 from pathlib import Path
-from datetime import datetime
 from docker.errors import ImageNotFound
 from fastapi import HTTPException
-from . import callback_router
+
 from .models import ContainerSpec
 from .container import Container, ContainerState
 from .config import Settings
@@ -91,19 +89,18 @@ def env_from_spec(spec):
     return out
 
 
-async def simple_background_build(container: Container, 
-                                  settings: Settings, 
+async def simple_background_build(container: Container,
+                                  settings: Settings,
                                   RUN_ID: UUID):
     """
     Most basic of build processes passed to a task through route activation.
     Start by checking state of build from the webservice. If status is 
     appropriate (as indicated by container.start_build()) proceed to construct 
     the container using repo2docker
-    """
 
     # check container.container_state to see if we should build
     if container.start_build(RUN_ID, settings):
-        
+
         docker_client = docker.APIClient(base_url=DOCKER_BASE_URL)
         try:
             # build container with docker
@@ -112,12 +109,12 @@ async def simple_background_build(container: Container,
                 container.state = ContainerState.failed
                 # TODO: capture and return output from docker_client.version()
                 return
-            
-            # on successful build, push container to registry 
+
+            # on successful build, push container to registry
             await asyncio.to_thread(docker_client.push,
                                     docker_name(container.container_id))
             container.state = ContainerState.ready
-        
+
         finally:
             container.builder = None
             # TODO: update container status w/ webservice via callback_router.py
@@ -150,7 +147,7 @@ async def docker_simple_build(container):
 
 async def build_spec(container_id, spec, tmp_dir):
     """
-    Write the build specifications out to a file in the temp directory that can 
+    Write the build specifications out to a file in the temp directory that can
     be accessed by repo2docker for the build process
     """
     if spec.apt:
@@ -322,7 +319,7 @@ async def make_ecr_url(db, ecr, build_id):
 
 async def background_build(container_id, tarball):
     with database.session_scope() as db:
-        
+
         if not await database.start_build(db, container_id):
             return
         container = db.query(database.Container).filter(
@@ -372,4 +369,3 @@ async def remove(db, container_id):
     except ecr.exceptions.RepositoryNotFoundException:
         pass
 """
-
