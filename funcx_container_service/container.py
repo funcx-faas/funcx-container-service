@@ -29,13 +29,13 @@ class Container():
 
     async def register_build(self, RUN_ID, settings):
         build_id = str(uuid.uuid4())
-        build_spec = BuildSpec(container_id=self.container_id, 
+        build_spec = BuildSpec(container_id=self.container_id,
                                build_id=build_id,
                                RUN_ID=RUN_ID)
 
         self.build_spec = build_spec
 
-        build_result = await callback_router.register_build(build_spec, 
+        build_result = await callback_router.register_build(build_spec,
                                                             settings)
         return build_result
 
