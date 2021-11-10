@@ -1,17 +1,13 @@
-import os
 import json
 import asyncio
-import tarfile
 import tempfile
 import docker
 import boto3
 import logging
 from uuid import UUID
-import pdb
 
 from pathlib import Path
 from docker.errors import ImageNotFound
-from fastapi import HTTPException
 
 from .models import ContainerSpec
 from .container import Container, ContainerState
@@ -95,8 +91,8 @@ async def simple_background_build(container: Container,
                                   RUN_ID: UUID):
     """
     Most basic of build processes passed to a task through route activation.
-    Start by checking state of build from the webservice. If status is 
-    appropriate (as indicated by container.start_build()) proceed to construct 
+    Start by checking state of build from the webservice. If status is
+    appropriate (as indicated by container.start_build()) proceed to construct
     the container using repo2docker
     """
 
@@ -149,7 +145,7 @@ async def docker_simple_build(container):
 
 async def build_spec(container_id, spec, tmp_dir):
     """
-    Write the build specifications out to a file in the temp directory that can 
+    Write the build specifications out to a file in the temp directory that can
     be accessed by repo2docker for the build process
     """
     if spec.apt:
@@ -165,7 +161,7 @@ async def repo2docker_build(container_id, temp_dir):
     Pass the file with the build specs to repo2docker to create the build and
     collect the resulting log information
     """
-    
+
     proc = await asyncio.create_subprocess_shell(
             REPO2DOCKER_CMD.format(docker_name(container_id), temp_dir),
             stdout=asyncio.subprocess.PIPE,
