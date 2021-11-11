@@ -1,136 +1,72 @@
-from uuid import UUID
-from typing import Optional
+from uuid import uuid4
+from functools import lru_cache
+from pprint import pformat
 
-from fastapi import (FastAPI, UploadFile, File, Response,
-                     BackgroundTasks, Depends)
-from pydantic import AnyUrl
-from sqlalchemy.orm import Session
+from logging.config import dictConfig
+import logging
+from .config import LogConfig
 
-from . import database, build, landlord
-from .models import ContainerSpec, StatusResponse
-from .dockerfile import emit_dockerfile
+from fastapi import (FastAPI, BackgroundTasks, Depends)
+
+from . import callback_router
+from .container import Container
+from .models import ContainerSpec
+from .config import Settings
+
+
+dictConfig(LogConfig().dict())
+log = logging.getLogger("funcx_container_service")
 
 app = FastAPI()
 
-
-def db_session():
-    session = database.Session()
-    try:
-        yield session
-        session.commit()
-    except:  # noqa: E722
-        session.rollback()
-        raise
-    finally:
-        session.close()
+RUN_ID = str(uuid4())
 
 
-@app.post("/build", response_model=UUID)
-async def simple_build(spec: ContainerSpec, tasks: BackgroundTasks,
-                       db: Session = Depends(db_session)):
-    """Build a container based on a JSON specification.
+@lru_cache()
+def get_settings():
+    return Settings()
 
+
+@app.on_event("startup")
+async def statup_event():
+    settings = get_settings()
+    log.info("Starting up funcx container service...")
+    log.info(f"URL of webservice (from '.env' file): {settings.WEBSERVICE_URL}")
+
+
+@app.post("/build", callbacks=callback_router.build_callback_router.routes)
+async def simple_build(spec: ContainerSpec,
+                       tasks: BackgroundTasks,
+                       # response: Response,
+                       settings: Settings = Depends(get_settings)):
+    """
+    Build a container based on a JSON specification.
     Returns an ID that can be used to query container status.
     """
-    container_id = await database.store_spec(db, spec)
+    log.info(f'run_id: {RUN_ID}')
 
-    alt = await landlord.find_existing(db, spec)
-    if not alt:
-        tasks.add_task(build.background_build, container_id, None)
+    log.info('container specification received:')
+    log.info(pformat(spec))
 
-    return await database.add_build(db, container_id)
+    # instantiate container object
+    container = Container(spec)
 
+    # kickoff the build process in the background
+    # tasks.add_task(build.simple_background_build, container)
+    # for integration testing, going to punt on the build and just pretend it kicked off appropriately
+    log.info('STUB: This is where the build process would happen...')
 
-@app.post("/build_advanced", response_model=UUID)
-async def advanced_build(tasks: BackgroundTasks, repo: UploadFile = File(...),
-                         db: Session = Depends(db_session),
-                         s3=Depends(build.s3_connection)):
-    """Build a container using repo2docker.
+    # register a build (build_id + container_id) with database and return the build_id
+    build_response = await container.register_build(RUN_ID, settings)
 
-    The repo must be a directory in `.tar.gz` format.
-    Returns an ID that can be used to query container status.
-    """
-    container_id = await database.store_tarball(db, s3, repo.file)
-
-    tasks.add_task(build.background_build, container_id, repo.file)
-    return await database.add_build(db, container_id)
-
-
-@app.get("/{build_id}/dockerfile")
-async def dockerfile(build_id: UUID, db: Session = Depends(db_session)):
-    """Generate a Dockerfile to build the given container.
-
-    Does not support "advanced build" (tarball) containers.
-    Produces a container that is roughly compatible with repo2docker.
-    """
-    pkgs = await database.get_spec(db, str(build_id))
-    return Response(content=emit_dockerfile(pkgs['apt'], pkgs['conda'],
-                                            pkgs['pip']),
-                    media_type="text/plain")
+    if build_response.status_code == 200:
+        return {"container_id": str(container.container_id),
+                "build_id": str(container.build_spec.build_id),
+                "RUN_ID": str(container.build_spec.RUN_ID)}
+    else:
+        return {"msg": f"webservice returned {build_response} when attempting to register the build"}
 
 
-@app.get("/{build_id}/status", response_model=StatusResponse)
-async def status(build_id: UUID, db: Session = Depends(db_session)):
-    """Check the status of a previously submitted build."""
-    return await database.status(db, str(build_id))
-
-
-@app.get("/{build_id}/docker", response_model=Optional[str])
-async def get_docker(build_id: UUID, tasks: BackgroundTasks,
-                     db: Session = Depends(db_session),
-                     ecr=Depends(build.ecr_connection)):
-    """Get the Docker build for a container.
-
-    If the container is not ready, null is returned, and a build is
-    initiated (if not already in progress). If the build specification
-    was invalid and cannot be completed, returns HTTP 410: Gone.
-    """
-
-    container_id, url = await build.make_ecr_url(db, ecr, str(build_id))
-    if not url:
-        tasks.add_task(build.background_build, container_id, None)
-    return url
-
-
-@app.get("/{build_id}/docker_log", response_model=Optional[AnyUrl])
-async def get_docker_log(build_id: UUID, tasks: BackgroundTasks,
-                         db: Session = Depends(db_session),
-                         s3=Depends(build.s3_connection)):
-    """Get the Docker build log for a container.
-
-    If the build is still in progress, null is returned.
-    """
-
-    url = await build.make_s3_url(db, s3, 'docker-logs', str(build_id))
-    return url
-
-
-@app.get("/{build_id}/singularity", response_model=Optional[AnyUrl])
-async def get_singularity(build_id: UUID, tasks: BackgroundTasks,
-                          db: Session = Depends(db_session),
-                          s3=Depends(build.s3_connection)):
-    """Get the Docker build for a container.
-
-    If the container is not ready, null is returned, and a build is
-    initiated (if not already in progress). If the build specification
-    was invalid and cannot be completed, returns HTTP 410: Gone.
-    """
-
-    container_id, url = await build.make_s3_container_url(
-            db, s3, 'singularity', str(build_id))
-    if not url:
-        tasks.add_task(build.background_build, container_id, None)
-    return url
-
-
-@app.get("/{build_id}/singularity_log", response_model=Optional[AnyUrl])
-async def get_singularity_log(build_id: UUID, tasks: BackgroundTasks,
-                              db: Session = Depends(db_session),
-                              s3=Depends(build.s3_connection)):
-    """Get the Singularity build log for a container.
-
-    If the build is still in progress, null is returned.
-    """
-
-    url = await build.make_s3_url(db, s3, 'singularity-logs', str(build_id))
-    return url
+@app.get("/")
+async def read_main():
+    return {"msg": "Hello World"}

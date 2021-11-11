@@ -5,17 +5,29 @@ import tarfile
 import tempfile
 import docker
 import boto3
+from uuid import UUID
+
 from pathlib import Path
-from datetime import datetime
 from docker.errors import ImageNotFound
 from fastapi import HTTPException
-from . import database, landlord
-from .models import ContainerSpec, ContainerState
+
+from .models import ContainerSpec
+from .container import Container, ContainerState
+from .config import Settings
 
 
 REPO2DOCKER_CMD = 'jupyter-repo2docker --no-run --image-name {} {}'
 SINGULARITY_CMD = 'singularity build --force {} docker-daemon://{}:latest'
 DOCKER_BASE_URL = 'unix://var/run/docker.sock'
+
+
+class Build():
+    pass
+    # id = Column(String, primary_key=True)
+    # container_hash = Column(String, ForeignKey('containers.id'))
+    # Add auth/user info
+
+    # container = relationship('Container', back_populates='builds')
 
 
 def s3_connection():
@@ -74,13 +86,98 @@ def env_from_spec(spec):
     return out
 
 
-async def build_spec(s3, container_id, spec, tmp_dir):
+async def simple_background_build(container: Container,
+                                  settings: Settings,
+                                  RUN_ID: UUID):
+    """
+    check state of build from the webservice. If status is appropriate (as
+    indicated by container.start_build()) proceed to construct the container
+    using repo2docker
+    """
+    if container.start_build(RUN_ID, settings):
+
+        docker_client = docker.APIClient(base_url=DOCKER_BASE_URL)
+        try:
+            # build container with docker
+            container.docker_size = await docker_simple_build(container)
+            if container.docker_size is None:
+                container.state = ContainerState.failed
+                # TODO: capture and return output from docker_client.version()
+                return
+
+            # on successful build, push container to registry
+            await asyncio.to_thread(docker_client.push,
+                                    docker_name(container.container_id))
+            container.state = ContainerState.ready
+
+        finally:
+            container.builder = None
+            # TODO: update container status w/ webservice via callback_router.py
+            pass
+
+
+async def docker_simple_build(container):
+    with tempfile.TemporaryDirectory() as tmp:
+        tmp = Path(tmp)
+        if container.specification:
+            container_size = await build_spec(
+                    container.container_id,
+                    ContainerSpec.parse_raw(container.specification),
+                    tmp)
+        # else:
+        #     if not tarball:
+        #         download = tempfile.NamedTemporaryFile()
+        #         tarball = download.name
+        #         await asyncio.to_thread(
+        #                 s3.download_file, 'repos', container.id, tarball)
+        #     container_size = await build_tarball(
+        #             s3,
+        #             container.id,
+        #             tarball,
+        #             tmp)
+        #     # just to be safe
+        #     os.unlink(tarball)
+    return container_size
+
+
+async def build_spec(container_id, spec, tmp_dir):
+    """
+    Write the build specifications out to a file in the temp directory that can
+    be accessed by repo2docker for the build process
+    """
     if spec.apt:
         with (tmp_dir / 'apt.txt').open('w') as f:
             f.writelines([x + '\n' for x in spec.apt])
     with (tmp_dir / 'environment.yml').open('w') as f:
         json.dump(env_from_spec(spec), f, indent=4)
-    return await repo2docker_build(s3, container_id, tmp_dir)
+    return await repo2docker_build(container_id, tmp_dir)
+
+
+async def repo2docker_build(s3, container_id, temp_dir):
+    """
+    Pass the file with the build specs to repo2docker to create the build and
+    collect the resulting log information
+    """
+    with tempfile.NamedTemporaryFile() as out:
+        proc = await asyncio.create_subprocess_shell(
+                REPO2DOCKER_CMD.format(docker_name(container_id), temp_dir),
+                stdout=out, stderr=out)
+        await proc.communicate()
+
+        out.flush()
+        out.seek(0)
+
+        # TODO: replace upload of logs to S3 with capture in local logging, as
+        # well as passing back to webservice
+        await asyncio.to_thread(
+                s3_upload, s3, out.name, 'docker-logs', container_id)
+
+    if proc.returncode != 0:
+        return None
+    return docker_size(container_id)
+
+###
+# Additional functionality not yet needed for v1 -SW
 
 
 async def build_tarball(s3, container_id, tarball, tmp_dir):
@@ -92,23 +189,6 @@ async def build_tarball(s3, container_id, tarball, tmp_dir):
         raise HTTPException(status_code=415, detail="Invalid tarball")
 
     return await repo2docker_build(s3, container_id, tmp_dir)
-
-
-async def repo2docker_build(s3, container_id, temp_dir):
-    with tempfile.NamedTemporaryFile() as out:
-        proc = await asyncio.create_subprocess_shell(
-                REPO2DOCKER_CMD.format(docker_name(container_id), temp_dir),
-                stdout=out, stderr=out)
-        await proc.communicate()
-
-        out.flush()
-        out.seek(0)
-        await asyncio.to_thread(
-                s3_upload, s3, out.name, 'docker-logs', container_id)
-
-    if proc.returncode != 0:
-        return None
-    return docker_size(container_id)
 
 
 async def singularity_build(s3, container_id):
@@ -157,6 +237,7 @@ async def docker_build(s3, container, tarball):
             os.unlink(tarball)
     return container_size
 
+"""
 
 async def make_s3_url(db, s3, bucket, build_id, is_container=True):
     for row in db.query(database.Build).filter(database.Build.id == build_id):
@@ -231,6 +312,7 @@ async def make_ecr_url(db, ecr, build_id):
 
 async def background_build(container_id, tarball):
     with database.session_scope() as db:
+
         if not await database.start_build(db, container_id):
             return
         container = db.query(database.Container).filter(
@@ -279,3 +361,4 @@ async def remove(db, container_id):
                                 repositoryName=container_id, force=True)
     except ecr.exceptions.RepositoryNotFoundException:
         pass
+"""
