@@ -1,6 +1,4 @@
 import docker
-from docker.errors import ImageNotFound
-import pdb
 import pytest
 import tempfile
 import uuid
@@ -63,12 +61,12 @@ async def test_repo2docker_build(container_id_fixture, temp_dir_fixture):
 
 
 @pytest.mark.asyncio
-async def test_empty_build_from_spec(container_id_fixture, 
+async def test_empty_build_from_spec(container_id_fixture,
                                      blank_container_spec_fixture,
                                      temp_dir_fixture):
 
-    container_size = await build_spec(container_id_fixture, 
-                                      blank_container_spec_fixture, 
+    container_size = await build_spec(container_id_fixture,
+                                      blank_container_spec_fixture,
                                       temp_dir_fixture)
 
     assert container_size > 0
@@ -77,12 +75,12 @@ async def test_empty_build_from_spec(container_id_fixture,
 
 """
 @pytest.mark.asyncio
-async def test_build_from_spec(container_id_fixture, 
+async def test_build_from_spec(container_id_fixture,
                                container_spec_fixture,
                                temp_dir_fixture):
 
-    container_size = await build_spec(container_id_fixture, 
-                                      container_spec_fixture, 
+    container_size = await build_spec(container_id_fixture,
+                                      container_spec_fixture,
                                       temp_dir_fixture)
 
     assert container_size > 0
