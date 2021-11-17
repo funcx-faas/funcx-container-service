@@ -6,10 +6,10 @@ from .models import BuildSpec, ContainerSpec, ContainerState
 class Container():
     """
     A class used to house the information and functionality  needed to build a
-    docker image that provides an environment in which a ML model can be 
+    docker image that provides an environment in which a ML model can be
     deployed on the funcX service for inference.
     """
-    
+
     def __init__(self, container_spec: ContainerSpec):
         self.container_spec = container_spec
         self.container_id = container_spec.container_id
