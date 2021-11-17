@@ -10,7 +10,7 @@ from funcx_container_service.build import repo2docker_build, build_spec, docker_
 
 
 def remove_image(container_id):
-    print(f'removing docker image {docker_name(container_id)}')
+    print(f'DONE: removing docker image {docker_name(container_id)}')
     docker_client = docker.APIClient(base_url=DOCKER_BASE_URL)
     docker_client.remove_image(docker_name(container_id))
 

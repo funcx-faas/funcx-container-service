@@ -94,6 +94,10 @@ async def simple_background_build(container: Container,
     Start by checking state of build from the webservice. If status is
     appropriate (as indicated by container.start_build()) proceed to construct
     the container using repo2docker
+
+    :param Container container: The Container object instance
+    :param Settings settings: Settings object with required metadata
+    :param UUID RUN_ID: unique identifier of the instance of this container building service
     """
 
     # check container.container_state to see if we should build
@@ -162,21 +166,23 @@ async def repo2docker_build(container_id, temp_dir):
     collect the resulting log information
     """
 
-    proc = await asyncio.create_subprocess_shell(
+    process = await asyncio.create_subprocess_shell(
             REPO2DOCKER_CMD.format(docker_name(container_id), temp_dir),
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE)
 
-    stdout = await proc.stdout.read()
-    stderr = await proc.stderr.read()
+    stdout = await process.stdout.read()
+    stderr = await process.stderr.read()
 
     if stdout.decode():
         logging.info(f'REPO2DOCKER: {stdout.decode()}')
     if stderr.decode():
         logging.error(f'REPO2DOCKER: {stderr.decode()}')
 
-    if proc.returncode != 0:
-        logging.error(f'Return code {proc.returncode} produced while running \
+    await process.wait()
+
+    if process.returncode != 0:
+        logging.error(f'Return code {process.returncode} produced while running \
             repo2docker for container_id: {container_id}')
         return None
 
