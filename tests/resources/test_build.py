@@ -41,11 +41,21 @@ def blank_container_spec_fixture():
 
 
 @pytest.fixture
-def container_spec_fixture():
+def pip_container_spec_fixture():
     mock_spec = ContainerSpec(
             container_type="Docker",
             container_id=uuid.uuid4(),
-            apt=['pandas', 'numpy']
+            pip=['beautifulsoup4', 'flask==2.0.1', 'scikit-learn', 'pandas']
+        )
+    return mock_spec
+
+
+@pytest.fixture
+def apt_container_spec_fixture():
+    mock_spec = ContainerSpec(
+            container_type="Docker",
+            container_id=uuid.uuid4(),
+            apt=['rolldice']
         )
     return mock_spec
 
@@ -73,15 +83,30 @@ async def test_empty_build_from_spec(container_id_fixture,
 
     remove_image(container_id_fixture)
 
-"""
+
 @pytest.mark.asyncio
-async def test_build_from_spec(container_id_fixture,
-                               container_spec_fixture,
-                               temp_dir_fixture):
+async def test_pip_build_from_spec(container_id_fixture,
+                                   pip_container_spec_fixture,
+                                   temp_dir_fixture):
 
     container_size = await build_spec(container_id_fixture,
-                                      container_spec_fixture,
+                                      pip_container_spec_fixture,
                                       temp_dir_fixture)
 
     assert container_size > 0
-"""
+
+    remove_image(container_id_fixture)
+
+
+@pytest.mark.asyncio
+async def test_apt_build_from_spec(container_id_fixture,
+                                   apt_container_spec_fixture,
+                                   temp_dir_fixture):
+
+    container_size = await build_spec(container_id_fixture,
+                                      apt_container_spec_fixture,
+                                      temp_dir_fixture)
+
+    assert container_size > 0
+
+    remove_image(container_id_fixture)
