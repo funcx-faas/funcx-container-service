@@ -5,3 +5,4 @@ uvicorn
 SQLAlchemy
 docker
 boto3
+httpx
