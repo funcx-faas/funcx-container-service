@@ -1,6 +1,6 @@
-import json
 import logging
 from pprint import pformat
+from urllib.parse import urljoin
 
 from fastapi import APIRouter
 from pydantic import BaseModel
@@ -78,14 +78,20 @@ async def register_build(build_spec: BuildSpec, settings: Settings):
     build_dict['build_id'] = str(build_spec.build_id)
     build_dict['RUN_ID'] = str(build_spec.RUN_ID)
 
-    build_json = json.dumps(build_dict)
+    build_dict['build_status'] = 'queued'
+
     # submit build back to webservice
 
-    log.info(pformat(build_json))
+    log.info(pformat(build_dict))
 
     async with httpx.AsyncClient() as client:
-        response = await client.post(f'{settings.WEBSERVICE_URL}/register_build',
-                                     json=build_json)
+        response = await client.put(urljoin(
+            settings.WEBSERVICE_URL,
+            f"v2/containers/build/{build_spec.container_id}"),
+            json=build_dict)
+
+        if response.status_code != 200:
+            log.error(f"register build sent back {response}")
 
     # leftover from db implementation
     # db.add(build)
