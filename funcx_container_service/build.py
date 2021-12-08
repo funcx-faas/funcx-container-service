@@ -1,15 +1,13 @@
-import os
 import json
 import asyncio
-import tarfile
 import tempfile
 import docker
 import boto3
+import logging
 from uuid import UUID
 
 from pathlib import Path
 from docker.errors import ImageNotFound
-from fastapi import HTTPException
 
 from .models import ContainerSpec
 from .container import Container, ContainerState
@@ -19,6 +17,8 @@ from .config import Settings
 REPO2DOCKER_CMD = 'jupyter-repo2docker --no-run --image-name {} {}'
 SINGULARITY_CMD = 'singularity build --force {} docker-daemon://{}:latest'
 DOCKER_BASE_URL = 'unix://var/run/docker.sock'
+
+log = logging.getLogger("funcx_container_service")
 
 
 class Build():
@@ -90,10 +90,17 @@ async def simple_background_build(container: Container,
                                   settings: Settings,
                                   RUN_ID: UUID):
     """
-    check state of build from the webservice. If status is appropriate (as
-    indicated by container.start_build()) proceed to construct the container
-    using repo2docker
+    Most basic of build processes passed to a task through route activation.
+    Start by checking state of build from the webservice. If status is
+    appropriate (as indicated by container.start_build()) proceed to construct
+    the container using repo2docker
+
+    :param Container container: The Container object instance
+    :param Settings settings: Settings object with required metadata
+    :param UUID RUN_ID: unique identifier of the instance of this container building service
     """
+
+    # check container.container_state to see if we should build
     if container.start_build(RUN_ID, settings):
 
         docker_client = docker.APIClient(base_url=DOCKER_BASE_URL)
@@ -153,212 +160,31 @@ async def build_spec(container_id, spec, tmp_dir):
     return await repo2docker_build(container_id, tmp_dir)
 
 
-async def repo2docker_build(s3, container_id, temp_dir):
+async def repo2docker_build(container_id, temp_dir):
     """
     Pass the file with the build specs to repo2docker to create the build and
     collect the resulting log information
     """
-    with tempfile.NamedTemporaryFile() as out:
-        proc = await asyncio.create_subprocess_shell(
-                REPO2DOCKER_CMD.format(docker_name(container_id), temp_dir),
-                stdout=out, stderr=out)
-        await proc.communicate()
 
-        out.flush()
-        out.seek(0)
+    process = await asyncio.create_subprocess_shell(
+            REPO2DOCKER_CMD.format(docker_name(container_id), temp_dir),
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE)
 
-        # TODO: replace upload of logs to S3 with capture in local logging, as
-        # well as passing back to webservice
-        await asyncio.to_thread(
-                s3_upload, s3, out.name, 'docker-logs', container_id)
+    stdout = await process.stdout.read()
+    stderr = await process.stderr.read()
 
-    if proc.returncode != 0:
+    if stdout.decode():
+        logging.info(f'REPO2DOCKER: {stdout.decode()}')
+    if stderr.decode():
+        logging.error(f'REPO2DOCKER: {stderr.decode()}')
+
+    await process.wait()
+
+    if process.returncode != 0:
+        logging.error(f'Return code {process.returncode} produced while running \
+            repo2docker for container_id: {container_id}')
         return None
-    return docker_size(container_id)
 
-###
-# Additional functionality not yet needed for v1 -SW
-
-
-async def build_tarball(s3, container_id, tarball, tmp_dir):
-    with tarfile.open(tarball) as tar_obj:
-        await asyncio.to_thread(tar_obj.extractall, path=tmp_dir)
-
-    # For some reason literally any file will pass through this tarfile check
-    if len(os.listdir(tmp_dir)) == 0:
-        raise HTTPException(status_code=415, detail="Invalid tarball")
-
-    return await repo2docker_build(s3, container_id, tmp_dir)
-
-
-async def singularity_build(s3, container_id):
-    with tempfile.NamedTemporaryFile() as sif, \
-            tempfile.NamedTemporaryFile() as out:
-        proc = await asyncio.create_subprocess_shell(
-                SINGULARITY_CMD.format(sif.name, docker_name(container_id)),
-                stdout=out, stderr=out)
-        await proc.communicate()
-
-        await asyncio.to_thread(
-                s3_upload, s3, out.name, 'singularity-logs', container_id)
-
-        if proc.returncode != 0:
-            return None
-        container_size = os.stat(sif.name).st_size
-        if container_size > 0:
-            await asyncio.to_thread(
-                    s3_upload, s3, sif.name, 'singularity', container_id)
-        else:
-            container_size = None
-        return container_size
-
-
-async def docker_build(s3, container, tarball):
-    with tempfile.TemporaryDirectory() as tmp:
-        tmp = Path(tmp)
-        if container.specification:
-            container_size = await build_spec(
-                    s3,
-                    container.id,
-                    ContainerSpec.parse_raw(container.specification),
-                    tmp)
-        else:
-            if not tarball:
-                download = tempfile.NamedTemporaryFile()
-                tarball = download.name
-                await asyncio.to_thread(
-                        s3.download_file, 'repos', container.id, tarball)
-            container_size = await build_tarball(
-                    s3,
-                    container.id,
-                    tarball,
-                    tmp)
-            # just to be safe
-            os.unlink(tarball)
+    container_size = docker_size(container_id)
     return container_size
-
-"""
-
-async def make_s3_url(db, s3, bucket, build_id, is_container=True):
-    for row in db.query(database.Build).filter(database.Build.id == build_id):
-        container = row.container
-        break
-    else:
-        raise HTTPException(status_code=404)
-
-    if not s3_check(db, s3, bucket, container.id):
-        return None
-
-    url = s3.generate_presigned_url(
-            'get_object',
-            Params={'Bucket': bucket, 'Key': container.id})
-    return url
-
-
-async def make_s3_container_url(db, s3, bucket, build_id):
-    for row in db.query(database.Build).filter(database.Build.id == build_id):
-        container = row.container
-        break
-    else:
-        raise HTTPException(status_code=404)
-
-    if container.state == ContainerState.failed:
-        raise HTTPException(status_code=410)
-    elif container.state != ContainerState.ready:
-        alt = await landlord.find_existing(
-                db, ContainerSpec.parse_raw(container.specification))
-        if alt:
-            container = alt
-        else:
-            return container.id, None
-
-    if not s3_check(db, s3, bucket, container.id):
-        await remove(db, container.id)
-        return container.id, None
-
-    container.last_used = datetime.now()
-
-    url = s3.generate_presigned_url(
-            'get_object',
-            Params={'Bucket': bucket, 'Key': container.id})
-    return container.id, url
-
-
-async def make_ecr_url(db, ecr, build_id):
-    for row in db.query(database.Build).filter(database.Build.id == build_id):
-        container = row.container
-        break
-    else:
-        raise HTTPException(status_code=404)
-
-    if container.state == ContainerState.failed:
-        raise HTTPException(status_code=410)
-    elif container.state != ContainerState.ready:
-        alt = await landlord.find_existing(
-                db, ContainerSpec.parse_raw(container.specification))
-        if alt:
-            container = alt
-        else:
-            return container.id, None
-
-    if not ecr_check(db, ecr, container.id):
-        await remove(db, container.id)
-        return container.id, None
-
-    container.last_used = datetime.now()
-
-    return container.id, docker_name(container.id)
-
-
-async def background_build(container_id, tarball):
-    with database.session_scope() as db:
-
-        if not await database.start_build(db, container_id):
-            return
-        container = db.query(database.Container).filter(
-                database.Container.id == container_id).one()
-
-        s3 = s3_connection()
-        docker_client = docker.APIClient(base_url=DOCKER_BASE_URL)
-        try:
-            container.docker_size = await docker_build(s3, container, tarball)
-            if container.docker_size is None:
-                container.state = ContainerState.failed
-                return
-            container.singularity_size = await singularity_build(
-                    s3, container_id)
-            if container.singularity_size is None:
-                container.state = ContainerState.failed
-                return
-            await asyncio.to_thread(docker_client.push,
-                                    docker_name(container_id))
-            container.state = ContainerState.ready
-        finally:
-            container.builder = None
-            await landlord.cleanup(db)
-
-
-async def remove(db, container_id):
-    container = db.query(database.Container).filter(
-            database.Container.id == container_id).one()
-    container.state = ContainerState.pending
-    container.builder = None
-    container.docker_size = None
-    container.singularity_size = None
-
-    s3 = s3_connection()
-    ecr = ecr_connection()
-
-    await asyncio.to_thread(s3.delete_object,
-                            {'Bucket': 'singularity', 'Key': container_id})
-    await asyncio.to_thread(s3.delete_object,
-                            {'Bucket': 'singularity-logs',
-                             'Key': container_id})
-    await asyncio.to_thread(s3.delete_object,
-                            {'Bucket': 'docker-logs', 'Key': container_id})
-    try:
-        await asyncio.to_thread(ecr.delete_repository,
-                                repositoryName=container_id, force=True)
-    except ecr.exceptions.RepositoryNotFoundException:
-        pass
-"""

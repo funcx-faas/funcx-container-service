@@ -77,6 +77,7 @@ async def register_build(build_spec: BuildSpec, settings: Settings):
     build_dict['container_id'] = str(build_spec.container_id)
     build_dict['build_id'] = str(build_spec.build_id)
     build_dict['RUN_ID'] = str(build_spec.RUN_ID)
+
     build_dict['build_status'] = 'queued'
 
     # submit build back to webservice
