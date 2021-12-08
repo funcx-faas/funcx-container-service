@@ -1,7 +1,4 @@
 flake8
 pytest
-<<<<<<< HEAD
 pytest-asyncio
-=======
->>>>>>> dev
 httpx
