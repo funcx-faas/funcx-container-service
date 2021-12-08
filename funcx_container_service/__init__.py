@@ -70,3 +70,9 @@ async def simple_build(spec: ContainerSpec,
 @app.get("/")
 async def read_main():
     return {"msg": "Hello World"}
+
+
+@app.get("/version")
+async def version():
+    version = "0.1"
+    return {"version": version}
