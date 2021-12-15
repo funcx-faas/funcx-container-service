@@ -40,3 +40,18 @@ service will rely on for complete functionality.
 The Docker daemon needs to be running (with the control socket)
 bind mounted into the container if applicable. Also requires Singularity 3.x
 in the build environment.
+
+## Testing
+
+Two types of tests so far;
+	use `pytest -m "not integration_test" tests/resources` to only run
+	unit tests.
+	
+	To run integration tests, start docker as above and use
+	`pytest -m "integration_test" tests/resources`
+	
+	
+	
+
+
+
