@@ -10,7 +10,7 @@ def test_read_main():
     assert response.json() == {"msg": "Hello World"}
 
 
-def test_read_verion():
+def test_read_version():
     response = client.get("/version")
     # pdb.set_trace()
     assert response.status_code == 200
