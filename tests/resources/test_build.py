@@ -6,7 +6,8 @@ from pathlib import Path
 import shutil
 
 from funcx_container_service.models import ContainerSpec
-from funcx_container_service.build import repo2docker_build, build_spec, docker_name, DOCKER_BASE_URL
+from funcx_container_service.build import (repo2docker_build, build_spec, docker_name,
+                                           DOCKER_BASE_URL, env_from_spec)
 
 
 def remove_image(container_id):
@@ -58,6 +59,15 @@ def apt_container_spec_fixture():
             apt=['rolldice']
         )
     return mock_spec
+
+
+def test_env_from_spec_pip(pip_container_spec_fixture):
+    env = env_from_spec(pip_container_spec_fixture)
+    assert env['dependencies'][1]['pip'] == pip_container_spec_fixture.pip
+
+
+def test_env_from_spec_conda():
+    return
 
 
 @pytest.mark.integration_test
