@@ -60,6 +60,7 @@ def apt_container_spec_fixture():
     return mock_spec
 
 
+@pytest.mark.integration_test
 @pytest.mark.asyncio
 async def test_repo2docker_build(container_id_fixture, temp_dir_fixture):
     print(f'building container id: {container_id_fixture}')
@@ -70,6 +71,7 @@ async def test_repo2docker_build(container_id_fixture, temp_dir_fixture):
     remove_image(container_id_fixture)
 
 
+@pytest.mark.integration_test
 @pytest.mark.asyncio
 async def test_empty_build_from_spec(container_id_fixture,
                                      blank_container_spec_fixture,
@@ -84,6 +86,7 @@ async def test_empty_build_from_spec(container_id_fixture,
     remove_image(container_id_fixture)
 
 
+@pytest.mark.integration_test
 @pytest.mark.asyncio
 async def test_pip_build_from_spec(container_id_fixture,
                                    pip_container_spec_fixture,
@@ -98,6 +101,7 @@ async def test_pip_build_from_spec(container_id_fixture,
     remove_image(container_id_fixture)
 
 
+@pytest.mark.integration_test
 @pytest.mark.asyncio
 async def test_apt_build_from_spec(container_id_fixture,
                                    apt_container_spec_fixture,

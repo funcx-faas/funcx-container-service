@@ -1,6 +1,7 @@
 from uuid import uuid4
 from functools import lru_cache
 from pprint import pformat
+import pdb
 
 from logging.config import dictConfig
 import logging
@@ -12,6 +13,7 @@ from . import callback_router
 from .container import Container
 from .models import ContainerSpec
 from .config import Settings
+from .version import container_service_version
 
 
 dictConfig(LogConfig().dict())
@@ -73,6 +75,5 @@ async def read_main():
 
 
 @app.get("/version")
-async def version():
-    version = "0.1"
-    return {"version": version}
+async def get_version():
+    return {"version": container_service_version}
