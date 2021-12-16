@@ -8,6 +8,7 @@ from uuid import UUID
 
 from pathlib import Path
 from docker.errors import ImageNotFound
+import docker
 
 from .models import ContainerSpec
 from .container import Container, ContainerState
@@ -17,7 +18,6 @@ from .config import Settings
 REPO2DOCKER_CMD = 'jupyter-repo2docker --no-run --image-name {} {}'
 SINGULARITY_CMD = 'singularity build --force {} docker-daemon://{}:latest'
 DOCKER_BASE_URL = 'unix://var/run/docker.sock'
-
 log = logging.getLogger("funcx_container_service")
 
 
@@ -28,6 +28,21 @@ class Build():
     # Add auth/user info
 
     # container = relationship('Container', back_populates='builds')
+
+
+def push_image(image_name, settings):
+    docker_client = docker.DockerClient(base_url=DOCKER_BASE_URL)
+    d_response = docker_client.login(username=settings.REGISTRY_USERNAME, 
+                                     password=settings.REGISTRY_PWD,
+                                     registry=settings.REGISTRY_URL)
+
+    if d_response['Status'] == 'Login Succeeded':
+        image = docker_client.images.get(image_name)
+        image.tag(repository=settings.DOCKER_REPOSITORY,
+                  tag=image_name)
+        for line in docker_client.push(repository=settings.DOCKER_REPOSITORY,
+                                       tag=image_name):
+            log.info(line)
 
 
 def s3_connection():
