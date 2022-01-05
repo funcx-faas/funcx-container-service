@@ -46,6 +46,14 @@ class Container():
                                                             settings)
         return build_result
 
+    async def register_build_complete(self, result_dict, settings):
+
+        post_dict = {**self.container_spec, **result_dict}
+
+        build_complete_result = await callback_router.register_build_complete(post_dict, settings)
+
+        return build_complete_result
+
     def start_build(self, RUN_ID, settings):
         try:
             if self.container_state == ContainerState.ready:
@@ -54,8 +62,7 @@ class Container():
             elif self.container_state == ContainerState.failed:
                 # already failed, not going to change
                 return False
-            elif (self.container_state == ContainerState.building
-                    and self.container_build_process == RUN_ID):
+            elif (self.container_state == ContainerState.building and self.container_build_process == RUN_ID):
                 # build already started by this server
                 return False
             elif self.container_state == ContainerState.building:

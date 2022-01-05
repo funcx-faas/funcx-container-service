@@ -9,6 +9,7 @@ from .config import LogConfig
 from fastapi import (FastAPI, BackgroundTasks, Depends)
 
 from . import callback_router
+from .build import simple_background_build
 from .container import Container
 from .models import ContainerSpec
 from .config import Settings
@@ -53,9 +54,11 @@ async def simple_build(spec: ContainerSpec,
     container = Container(spec)
 
     # kickoff the build process in the background
-    # tasks.add_task(build.simple_background_build, container)
+    log.info("Starting container build process...")
+    tasks.add_task(simple_background_build, container)
+
     # for integration testing, going to punt on the build and just pretend it kicked off appropriately
-    log.info('STUB: This is where the build process would happen...')
+    # log.info('STUB: This is where the build process would happen...')
 
     # register a build (build_id + container_id) with database and return the build_id
     build_response = await container.register_build(RUN_ID, settings)
