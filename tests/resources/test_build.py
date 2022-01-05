@@ -34,52 +34,47 @@ def temp_dir_fixture():
 
 @pytest.fixture
 def blank_container_spec_fixture():
-    mock_spec = ContainerSpec(
-            container_type="Docker",
-            container_id=uuid.uuid4(),
-            apt=[]
-        )
+    mock_spec = ContainerSpec(container_type="Docker",
+                              container_id=uuid.uuid4(),
+                              apt=[]
+                              )
     return mock_spec
 
 
 @pytest.fixture
 def pip_container_spec_fixture():
-    mock_spec = ContainerSpec(
-            container_type="Docker",
-            container_id=uuid.uuid4(),
-            pip=['beautifulsoup4', 'flask==2.0.1', 'scikit-learn', 'pandas']
-        )
+    mock_spec = ContainerSpec(container_type="Docker",
+                              container_id=uuid.uuid4(),
+                              pip=['beautifulsoup4', 'flask==2.0.1', 'scikit-learn', 'pandas']
+                              )
     return mock_spec
 
 
 @pytest.fixture
 def apt_container_spec_fixture():
-    mock_spec = ContainerSpec(
-            container_type="Docker",
-            container_id=uuid.uuid4(),
-            apt=['rolldice']
-        )
+    mock_spec = ContainerSpec(container_type="Docker",
+                              container_id=uuid.uuid4(),
+                              apt=['rolldice']
+                              )
     return mock_spec
 
 
 @pytest.fixture
 def conda_container_spec_fixture():
-    mock_spec = ContainerSpec(
-            container_type="Docker",
-            container_id=uuid.uuid4(),
-            conda=['pandas']
-        )
+    mock_spec = ContainerSpec(container_type="Docker",
+                              container_id=uuid.uuid4(),
+                              conda=['pandas']
+                              )
     return mock_spec
 
 
 @pytest.fixture
 def combo_container_spec_fixture():
-    mock_spec = ContainerSpec(
-            container_type="Docker",
-            container_id=uuid.uuid4(),
-            conda=['pandas'],
-            pip=['beautifulsoup4', 'flask==2.0.1', 'scikit-learn']\
-        )
+    mock_spec = ContainerSpec(container_type="Docker",
+                              container_id=uuid.uuid4(),
+                              conda=['pandas'],
+                              pip=['beautifulsoup4', 'flask==2.0.1', 'scikit-learn']
+                              )
     return mock_spec
 
 
@@ -95,20 +90,20 @@ def test_env_from_spec_conda(conda_container_spec_fixture):
 
 def test_env_from_spec_combo(combo_container_spec_fixture):
     env = env_from_spec(combo_container_spec_fixture)
-    assert env['dependencies'] == ['pip', 
-                                     ', '.join(combo_container_spec_fixture.conda),
-                                     {'pip':combo_container_spec_fixture.pip}
-                                  ]
+    assert env['dependencies'] == ['pip',
+                                   ', '.join(combo_container_spec_fixture.conda),
+                                   {'pip': combo_container_spec_fixture.pip}
+                                   ]
 
 
 @pytest.mark.asyncio
 async def test_build_spec_to_file(container_id_fixture,
-                                     blank_container_spec_fixture,
-                                     temp_dir_fixture):
+                                  blank_container_spec_fixture,
+                                  temp_dir_fixture):
 
     await build_spec_to_file(container_id_fixture,
-                                      blank_container_spec_fixture,
-                                      temp_dir_fixture)
+                             blank_container_spec_fixture,
+                             temp_dir_fixture)
 
     assert os.path.exists(os.path.join(temp_dir_fixture, 'environment.yml'))
 
@@ -156,8 +151,8 @@ async def test_apt_build_from_spec(container_id_fixture,
                                    temp_dir_fixture):
 
     await build_spec_to_file(container_id_fixture,
-                                      apt_container_spec_fixture,
-                                      temp_dir_fixture)
+                             apt_container_spec_fixture,
+                             temp_dir_fixture)
 
     build_response = await repo2docker_build(container_id_fixture,
                                              temp_dir_fixture)
