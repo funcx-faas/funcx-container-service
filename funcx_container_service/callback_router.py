@@ -102,5 +102,17 @@ async def register_build(build_spec: BuildSpec, settings: Settings):
     return response
 
 
+async def register_build_complete(post_dict, settings: Settings):
+
+    async with httpx.AsyncClient() as client:
+        response = await client.put(urljoin(
+            settings.WEBSERVICE_URL,
+            f"v2/containers/build_complete/{post_dict['container_id']}"),
+            json=post_dict)
+
+        if response.status_code != 200:
+            log.error(f"register build complete sent back {response}")
+
+
 async def remove_build(container_id):
     pass
