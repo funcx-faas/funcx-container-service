@@ -7,7 +7,7 @@ from pydantic import BaseModel
 import httpx
 
 from .config import Settings
-from .models import ContainerSpec, BuildSpec
+from .models import ContainerSpec, BuildSpec, BuildCompletionSpec
 
 
 log = logging.getLogger("funcx_container_service")
@@ -61,8 +61,8 @@ def register_container_spec_requests(spec: ContainerSpec,
     return container_id
 
 
-@build_callback_router.post(f'{Settings().WEBSERVICE_URL.strip("/")}/register_build')
-def store_build_spec(body: BuildSpec):
+@build_callback_router.put(f'{Settings().WEBSERVICE_URL.strip("/")}/v2/containers/[container_id]/status')
+def register_build_start(body: BuildSpec):
     pass
 
 
@@ -87,7 +87,7 @@ async def register_build(build_spec: BuildSpec, settings: Settings):
     async with httpx.AsyncClient() as client:
         response = await client.put(urljoin(
             settings.WEBSERVICE_URL,
-            f"v2/containers/build/{build_spec.container_id}"),
+            f"v2/containers/{build_spec.container_id}/status"),
             json=build_dict)
 
         if response.status_code != 200:
@@ -102,13 +102,17 @@ async def register_build(build_spec: BuildSpec, settings: Settings):
     return response
 
 
-async def register_build_complete(post_dict, settings: Settings):
+@build_callback_router.put(f'{Settings().WEBSERVICE_URL.strip("/")}/v2/containers/[container_id]/status')
+def register_build_complete(body: BuildCompletionSpec):
+    pass
+
+async def register_build_complete(completion_spec, settings: Settings):
 
     async with httpx.AsyncClient() as client:
         response = await client.put(urljoin(
             settings.WEBSERVICE_URL,
-            f"v2/containers/build_complete/{post_dict['container_id']}"),
-            json=post_dict)
+            f"v2/containers/{completion_spec.container_id}/status"),
+            json=completion_spec)
 
         if response.status_code != 200:
             log.error(f"register build complete sent back {response}")

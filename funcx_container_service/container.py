@@ -1,6 +1,6 @@
 import uuid
 from . import callback_router
-from .models import BuildSpec, ContainerSpec, ContainerState
+from .models import BuildSpec, ContainerSpec, ContainerState, BuildCompletionSpec
 
 
 class Container():
@@ -46,11 +46,11 @@ class Container():
                                                             settings)
         return build_result
 
-    async def register_build_complete(self, result_dict, settings):
+    async def register_build_complete(self, completion_spec, settings):
 
-        post_dict = {**self.container_spec, **result_dict}
+        # post_dict = {**self.container_spec, **BuildCompletionSpec}
 
-        build_complete_result = await callback_router.register_build_complete(post_dict, settings)
+        build_complete_result = await callback_router.register_build_complete(completion_spec, settings)
 
         return build_complete_result
 
