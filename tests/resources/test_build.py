@@ -117,6 +117,7 @@ def test_env_from_spec_combo(combo_container_spec_fixture):
                                    ]
 
 
+@pytest.mark.integration_test
 @pytest.mark.asyncio
 async def test_build_spec_to_file(container_id_fixture,
                                   blank_container_spec_fixture,
@@ -145,7 +146,6 @@ async def test_empty_build_from_spec(empty_container_fixture,
     assert build_response.repo2docker_return_code == 0
 
     remove_image(empty_container_fixture.container_id)
-
 
 @pytest.mark.integration_test
 @pytest.mark.asyncio
