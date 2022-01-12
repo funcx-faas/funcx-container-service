@@ -12,6 +12,7 @@ from . import callback_router
 from .container import Container
 from .models import ContainerSpec
 from .config import Settings
+from .version import container_service_version
 
 
 dictConfig(LogConfig().dict())
@@ -70,3 +71,8 @@ async def simple_build(spec: ContainerSpec,
 @app.get("/")
 async def read_main():
     return {"msg": "Hello World"}
+
+
+@app.get("/version")
+async def get_version():
+    return {"version": container_service_version}
