@@ -103,8 +103,9 @@ async def register_build(build_spec: BuildSpec, settings: Settings):
 
 
 @build_callback_router.put(f'{Settings().WEBSERVICE_URL.strip("/")}/v2/containers/[container_id]/status')
-def register_build_complete(body: BuildCompletionSpec):
+def register_build_completion(body: BuildCompletionSpec):
     pass
+
 
 async def register_build_complete(completion_spec, settings: Settings):
 

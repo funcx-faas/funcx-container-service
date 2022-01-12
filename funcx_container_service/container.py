@@ -1,6 +1,6 @@
 import uuid
 from . import callback_router
-from .models import BuildSpec, ContainerSpec, ContainerState, BuildCompletionSpec
+from .models import BuildSpec, ContainerSpec, ContainerState
 
 
 class Container():

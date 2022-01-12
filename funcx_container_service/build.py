@@ -104,7 +104,7 @@ async def repo2docker_build(container_id, temp_dir):
     collect the resulting log information
     """
 
-    completion_spec = BuildCompetionSpec()
+    completion_spec = BuildCompletionSpec()
     completion_spec.container_id = container_id
     completion_spec.repo2docker_return_code = 0
 
