@@ -9,7 +9,7 @@ from uuid import UUID
 from pathlib import Path
 from docker.errors import ImageNotFound
 
-from .models import ContainerSpec
+from .models import ContainerSpec, BuildCompletionSpec
 from .container import Container, ContainerState
 from .config import Settings
 
@@ -61,14 +61,14 @@ async def simple_background_build(container: Container,
                         tmp)
 
                     # build container with docker
-                    result_dict = await repo2docker_build(container.container_id, tmp)
+                    completion_spec = await repo2docker_build(container.container_id, tmp)
 
                     # check for failed build
-                    if result_dict['returncode'] != 0:
+                    if completion_spec.repo2docker_return_code != 0:
                         container.state = ContainerState.failed
                         return
 
-                    container.container_size = result_dict['container_size']
+                    container.container_size = completion_spec.container_size
 
                     # on successful build, push container to registry
                     image_name = docker_name(container.container_id)
@@ -79,11 +79,11 @@ async def simple_background_build(container: Container,
 
         finally:
 
-            result_dict['docker_client_version'] = docker_client.version()
-            result_dict['RUN_ID'] = RUN_ID
-            result_dict['conatiner_state'] = container.state
+            completion_spec.docker_client_version = docker_client.version()
+            completion_spec.RUN_ID = RUN_ID
+            completion_spec.conatiner_state = container.state
 
-        container.register_build_complete(result_dict, settings)
+        container.register_build_complete(completion_spec, settings)
 
 
 async def build_spec_to_file(container_id, spec, tmp_dir):
@@ -104,9 +104,9 @@ async def repo2docker_build(container_id, temp_dir):
     collect the resulting log information
     """
 
-    build_response = {}
-    build_response['container_id'] = container_id
-    build_response['repo2docker_return_code'] = 0
+    completion_spec = BuildCompetionSpec()
+    completion_spec.container_id = container_id
+    completion_spec.repo2docker_return_code = 0
 
     process = await asyncio.create_subprocess_shell(REPO2DOCKER_CMD.format(docker_name(container_id), temp_dir),
                                                     stdout=asyncio.subprocess.PIPE,
@@ -118,12 +118,12 @@ async def repo2docker_build(container_id, temp_dir):
     if stdout.decode():
         stdout_msg = stdout.decode()
         logging.info(f'REPO2DOCKER: {stdout_msg}')
-        build_response['stdout'] = stdout_msg
+        completion_spec.stdout = stdout_msg
 
     if stderr.decode():
         err_msg = stderr.decode()
         logging.error(f'REPO2DOCKER: {err_msg}')
-        build_response['stderr'] = err_msg
+        completion_spec.stderr = err_msg
 
     await process.wait()
 
@@ -131,11 +131,11 @@ async def repo2docker_build(container_id, temp_dir):
         logging.error(f'Return code {process.returncode} produced while running \
             repo2docker for container_id: {container_id}')
 
-        build_response['repo2docker_return_code'] = process.returncode
+        completion_spec.repo2docker_return_code = process.returncode
 
-    build_response['container_size'] = docker_size(container_id)
+    completion_spec.container_size = docker_size(container_id)
 
-    return build_response
+    return completion_spec
 
 
 def push_image(image_name, settings):
