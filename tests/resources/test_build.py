@@ -7,7 +7,7 @@ from pathlib import Path
 import shutil
 
 from funcx_container_service.container import Container
-from funcx_container_service.models import ContainerSpec, BuildSpec
+from funcx_container_service.models import ContainerSpec
 from funcx_container_service.build import (repo2docker_build, build_spec_to_file, docker_name,
                                            DOCKER_BASE_URL, env_from_spec)
 
