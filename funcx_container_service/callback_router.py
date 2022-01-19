@@ -62,7 +62,7 @@ def register_container_spec_requests(spec: ContainerSpec,
     return container_id
 
 
-@build_callback_router.put(f'<webservice_url>/v2/containers/<container_id>/status')
+@build_callback_router.put('<webservice_url>/v2/containers/<container_id>/status')
 def register_build(body: BuildSpec):
     pass
 
@@ -88,7 +88,7 @@ async def register_building(container: Container, settings: Settings):
     return response
 
 
-@build_callback_router.put(f'<webservice_url>/v2/containers/<container_id>/status')
+@build_callback_router.put('<webservice_url>/v2/containers/<container_id>/status')
 def register_build_start(body: BuildSpec):
     pass
 
@@ -112,7 +112,7 @@ async def register_build_starting(container: Container, settings: Settings):
             log.error(f"register build complete sent back {response}")
 
 
-@build_callback_router.put(f'<webservice_url>/v2/containers/<container_id>/status')
+@build_callback_router.put('<webservice_url>/v2/containers/<container_id>/status')
 def register_build_completion(body: BuildCompletionSpec):
     pass
 
