@@ -9,6 +9,7 @@ from uuid import UUID
 from pathlib import Path
 from docker.errors import ImageNotFound
 
+from .callback_router import register_build_starting
 from .models import ContainerSpec, BuildCompletionSpec
 from .container import Container, ContainerState
 from .config import Settings
@@ -47,21 +48,26 @@ async def simple_background_build(container: Container,
     # check container.container_state to see if we should build
     if container.start_build(RUN_ID, settings):
 
+        await register_build_starting(container, settings)
+
         docker_client = docker.APIClient(base_url=DOCKER_BASE_URL)
         try:
 
             with tempfile.TemporaryDirectory() as tmp:
                 tmp = Path(tmp)
 
+                # register start of build with webservice
+                # container.register_build(RUN_UD, settings)
+
                 # write spec to file
                 if container.container_spec:
                     await build_spec_to_file(
                         container.container_id,
-                        ContainerSpec.parse_raw(container.container_spec),
+                        ContainerSpec.parse_raw(container.container_spec.json()),
                         tmp)
 
                     # build container with docker
-                    completion_spec = await repo2docker_build(container.container_id, tmp)
+                    completion_spec = await repo2docker_build(container, tmp, docker_client.version())
 
                     # check for failed build
                     if completion_spec.repo2docker_return_code != 0:
@@ -75,15 +81,15 @@ async def simple_background_build(container: Container,
                     push_image(image_name, settings)
 
                     # update container state upon successful build
-                    container.state = ContainerState.ready
+                    container.build_status = ContainerState.ready
 
         finally:
 
-            completion_spec.docker_client_version = docker_client.version()
-            completion_spec.RUN_ID = RUN_ID
-            completion_spec.conatiner_state = container.state
+            completion_spec.build_status = container.build_status
 
-        container.register_build_complete(completion_spec, settings)
+        completion_registration = await container.register_build_complete(completion_spec, settings)
+
+        log.info(completion_registration)
 
 
 async def build_spec_to_file(container_id, spec, tmp_dir):
@@ -98,17 +104,20 @@ async def build_spec_to_file(container_id, spec, tmp_dir):
         json.dump(env_from_spec(spec), f, indent=4)
 
 
-async def repo2docker_build(container_id, temp_dir):
+async def repo2docker_build(container, temp_dir, docker_client_version):
     """
     Pass the file with the build specs to repo2docker to create the build and
     collect the resulting log information
     """
 
-    completion_spec = BuildCompletionSpec()
-    completion_spec.container_id = container_id
-    completion_spec.repo2docker_return_code = 0
+    completion_spec = BuildCompletionSpec(container_id=container.container_id,
+                                          build_id=container.build_id,
+                                          RUN_ID=container.RUN_ID,
+                                          build_status=container.build_status,
+                                          docker_client_version=str(docker_client_version))
 
-    process = await asyncio.create_subprocess_shell(REPO2DOCKER_CMD.format(docker_name(container_id), temp_dir),
+    process = await asyncio.create_subprocess_shell(REPO2DOCKER_CMD.format(docker_name(container.container_id),
+                                                                           temp_dir),
                                                     stdout=asyncio.subprocess.PIPE,
                                                     stderr=asyncio.subprocess.PIPE)
 
@@ -129,27 +138,39 @@ async def repo2docker_build(container_id, temp_dir):
 
     if process.returncode != 0:
         logging.error(f'Return code {process.returncode} produced while running \
-            repo2docker for container_id: {container_id}')
+            repo2docker for container_id: {container.container_id}')
 
         completion_spec.repo2docker_return_code = process.returncode
 
-    completion_spec.container_size = docker_size(container_id)
+    completion_spec.container_size = docker_size(container.container_id)
 
     return completion_spec
 
 
 def push_image(image_name, settings):
-    docker_client = docker.DockerClient(base_url=DOCKER_BASE_URL)
+
+    docker_client = docker.APIClient(base_url=DOCKER_BASE_URL)
+
     d_response = docker_client.login(username=settings.REGISTRY_USERNAME,
                                      password=settings.REGISTRY_PWD,
                                      registry=settings.REGISTRY_URL)
 
     if d_response['Status'] == 'Login Succeeded':
-        image = docker_client.images.get(image_name)
-        image.tag(repository=settings.DOCKER_REPOSITORY,
-                  tag=image_name)
-        for line in docker_client.push(repository=settings.DOCKER_REPOSITORY,
-                                       tag=image_name):
+
+        tag_string = 'latest'
+
+        docker_client.tag(image_name,
+                          f'{settings.REGISTRY_USERNAME}/{image_name}',
+                          tag=tag_string)
+
+        auth_dict = {'username': settings.REGISTRY_USERNAME,
+                     'password': settings.REGISTRY_PWD}
+
+        for line in docker_client.push(repository=f'{settings.REGISTRY_USERNAME}/{image_name}',
+                                       stream=True,
+                                       decode=True,
+                                       tag=tag_string,
+                                       auth_config=auth_dict):
             log.info(line)
 
 

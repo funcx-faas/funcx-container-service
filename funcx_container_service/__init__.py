@@ -34,6 +34,8 @@ async def statup_event():
     settings = get_settings()
     log.info("Starting up funcx container service...")
     log.info(f"URL of webservice (from '.env' file): {settings.WEBSERVICE_URL}")
+    log.info(f"URL of container registry (from '.env' file): {settings.REGISTRY_URL}")
+    log.info(f"Username for container registry (from '.env' file): {settings.REGISTRY_USERNAME}")
 
 
 @app.post("/build", callbacks=callback_router.build_callback_router.routes)
@@ -51,22 +53,23 @@ async def simple_build(spec: ContainerSpec,
     log.info(pformat(spec))
 
     # instantiate container object
-    container = Container(spec)
+    container = Container(spec, RUN_ID)
 
-    # kickoff the build process in the background
-    log.info("Starting container build process...")
-    tasks.add_task(simple_background_build, container)
+    # register a build (build_id + container_id) with database and return the build_id
+    build_response = await container.register_building(RUN_ID, settings)
 
     # for integration testing, going to punt on the build and just pretend it kicked off appropriately
     # log.info('STUB: This is where the build process would happen...')
 
-    # register a build (build_id + container_id) with database and return the build_id
-    build_response = await container.register_build(RUN_ID, settings)
+    # kickoff the build process in the background
+    log.info("Starting container build process - adding 'simple_background_build' to tasks...")
+    tasks.add_task(simple_background_build, container, settings, RUN_ID)
 
-    if build_response.status_code == 200:
+    # if build_response.status_code == 200:
+    if build_response:  # testing
         return {"container_id": str(container.container_id),
-                "build_id": str(container.build_spec.build_id),
-                "RUN_ID": str(container.build_spec.RUN_ID)}
+                "build_id": str(container.build_id),
+                "RUN_ID": str(container.RUN_ID)}
     else:
         return {"msg": f"webservice returned {build_response} when attempting to register the build"}
 

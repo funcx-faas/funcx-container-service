@@ -6,7 +6,8 @@ import uuid
 from pathlib import Path
 import shutil
 
-from funcx_container_service.models import ContainerSpec
+from funcx_container_service.container import Container
+from funcx_container_service.models import ContainerSpec, BuildSpec
 from funcx_container_service.build import (repo2docker_build, build_spec_to_file, docker_name,
                                            DOCKER_BASE_URL, env_from_spec)
 
@@ -78,6 +79,26 @@ def combo_container_spec_fixture():
     return mock_spec
 
 
+@pytest.fixture
+def empty_container_fixture(blank_container_spec_fixture):
+    return Container(blank_container_spec_fixture, RUN_ID=uuid.uuid4())
+
+
+@pytest.fixture
+def pip_container_fixture(pip_container_spec_fixture):
+    return Container(pip_container_spec_fixture, RUN_ID=uuid.uuid4())
+
+
+@pytest.fixture
+def conda_container_fixture(conda_container_spec_fixture):
+    return Container(conda_container_spec_fixture, RUN_ID=uuid.uuid4())
+
+
+@pytest.fixture
+def apt_container_fixture(apt_container_spec_fixture):
+    return Container(apt_container_spec_fixture, RUN_ID=uuid.uuid4())
+
+
 def test_env_from_spec_pip(pip_container_spec_fixture):
     env = env_from_spec(pip_container_spec_fixture)
     assert env['dependencies'][1]['pip'] == pip_container_spec_fixture.pip
@@ -110,53 +131,53 @@ async def test_build_spec_to_file(container_id_fixture,
 
 @pytest.mark.integration_test
 @pytest.mark.asyncio
-async def test_empty_build_from_spec(container_id_fixture,
-                                     blank_container_spec_fixture,
+async def test_empty_build_from_spec(empty_container_fixture,
                                      temp_dir_fixture):
 
-    await build_spec_to_file(container_id_fixture,
-                             blank_container_spec_fixture,
+    await build_spec_to_file(empty_container_fixture.container_id,
+                             empty_container_fixture.container_spec,
                              temp_dir_fixture)
 
-    build_response = await repo2docker_build(container_id_fixture,
-                                             temp_dir_fixture)
+    build_response = await repo2docker_build(empty_container_fixture,
+                                             temp_dir_fixture,
+                                             '1.0')
 
-    assert build_response['repo2docker_return_code'] == 0
+    assert build_response.repo2docker_return_code == 0
 
-    remove_image(container_id_fixture)
+    remove_image(empty_container_fixture.container_id)
 
 
 @pytest.mark.integration_test
 @pytest.mark.asyncio
-async def test_pip_build_from_spec(container_id_fixture,
-                                   pip_container_spec_fixture,
+async def test_pip_build_from_spec(pip_container_fixture,
                                    temp_dir_fixture):
 
-    await build_spec_to_file(container_id_fixture,
-                             pip_container_spec_fixture,
+    await build_spec_to_file(pip_container_fixture.container_id,
+                             pip_container_fixture.container_spec,
                              temp_dir_fixture)
 
-    build_response = await repo2docker_build(container_id_fixture,
-                                             temp_dir_fixture)
+    build_response = await repo2docker_build(pip_container_fixture,
+                                             temp_dir_fixture,
+                                             '1.0')
 
-    assert build_response['repo2docker_return_code'] == 0
+    assert build_response.repo2docker_return_code == 0
 
-    remove_image(container_id_fixture)
+    remove_image(pip_container_fixture.container_id)
 
 
 @pytest.mark.integration_test
 @pytest.mark.asyncio
-async def test_apt_build_from_spec(container_id_fixture,
-                                   apt_container_spec_fixture,
+async def test_apt_build_from_spec(apt_container_fixture,
                                    temp_dir_fixture):
 
-    await build_spec_to_file(container_id_fixture,
-                             apt_container_spec_fixture,
+    await build_spec_to_file(apt_container_fixture.container_id,
+                             apt_container_fixture.container_spec,
                              temp_dir_fixture)
 
-    build_response = await repo2docker_build(container_id_fixture,
-                                             temp_dir_fixture)
+    build_response = await repo2docker_build(apt_container_fixture,
+                                             temp_dir_fixture,
+                                             '1.0')
 
-    assert build_response['repo2docker_return_code'] == 0
+    assert build_response.repo2docker_return_code == 0
 
-    remove_image(container_id_fixture)
+    remove_image(apt_container_fixture.container_id)
