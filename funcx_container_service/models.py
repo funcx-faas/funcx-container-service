@@ -56,15 +56,15 @@ class BuildSpec(BaseModel):
     container_id: UUID
     build_id: UUID
     RUN_ID: UUID
+    build_status: ContainerState
 
 
 class BuildCompletionSpec(BuildSpec):
-    repo2docker_return_code: int
-    stdout: str
-    stderr: str
-    container_size: float
+    repo2docker_return_code: int = 0
+    stdout: Optional[str]
+    stderr: Optional[str]
+    container_size: float = 0
     docker_client_version: str
-    container_state: ContainerState
 
 
 class BuildResponse(BaseModel):

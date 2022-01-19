@@ -7,6 +7,7 @@ from pydantic import BaseModel
 import httpx
 
 from .config import Settings
+from .container import Container
 from .models import ContainerSpec, BuildSpec, BuildCompletionSpec
 
 
@@ -62,44 +63,53 @@ def register_container_spec_requests(spec: ContainerSpec,
 
 
 @build_callback_router.put(f'{Settings().WEBSERVICE_URL.strip("/")}/v2/containers/[container_id]/status')
-def register_build_start(body: BuildSpec):
+def register_build(body: BuildSpec):
     pass
 
 
-async def register_build(build_spec: BuildSpec, settings: Settings):
+async def register_building(container: Container, settings: Settings):
 
-    """
-    Generates and assigns a uuid as a 'build_id' that, in combination with the
-    container_id, can be used to track the building of a container.
-    """
+    build_spec = BuildSpec(container_id=container.container_id,
+                           build_id=container.build_id,
+                           RUN_ID=container.RUN_ID,
+                           build_status=container.build_status)
 
-    build_dict = {}
-    build_dict['container_id'] = str(build_spec.container_id)
-    build_dict['build_id'] = str(build_spec.build_id)
-    build_dict['RUN_ID'] = str(build_spec.RUN_ID)
-
-    build_dict['build_status'] = 'queued'
-
-    # submit build back to webservice
-
-    log.info(pformat(build_dict))
+    log.info(f'registering build for: {pformat(build_spec)}')
 
     async with httpx.AsyncClient() as client:
         response = await client.put(urljoin(
             settings.WEBSERVICE_URL,
             f"v2/containers/{build_spec.container_id}/status"),
-            json=build_dict)
+            json=build_spec.json())
 
         if response.status_code != 200:
             log.error(f"register build sent back {response}")
 
-    # leftover from db implementation
-    # db.add(build)
-    # db.commit()  # needed to get relationships
-    # build.container.last_used = datetime.now()  # <-- # from database.add_build
-    # - but why are we setting this before writing???
-
     return response
+
+
+@build_callback_router.put(f'{Settings().WEBSERVICE_URL.strip("/")}/v2/containers/[container_id]/status')
+def register_build_start(body: BuildSpec):
+    pass
+
+
+async def register_build_starting(container: Container, settings: Settings):
+
+    build_spec = BuildSpec(container_id=container.container_id,
+                           build_id=container.build_id,
+                           RUN_ID=container.RUN_ID,
+                           build_status=container.build_status)
+
+    log.info(f'registering build start for: {pformat(build_spec)}')
+
+    async with httpx.AsyncClient() as client:
+        response = await client.put(urljoin(
+            settings.WEBSERVICE_URL,
+            f"v2/containers/{build_spec.container_id}/status"),
+            json=build_spec.json())
+
+        if response.status_code != 200:
+            log.error(f"register build complete sent back {response}")
 
 
 @build_callback_router.put(f'{Settings().WEBSERVICE_URL.strip("/")}/v2/containers/[container_id]/status')
@@ -107,13 +117,13 @@ def register_build_completion(body: BuildCompletionSpec):
     pass
 
 
-async def register_build_complete(completion_spec, settings: Settings):
+async def register_build_complete(completion_spec: BuildCompletionSpec, settings: Settings):
 
     async with httpx.AsyncClient() as client:
         response = await client.put(urljoin(
             settings.WEBSERVICE_URL,
             f"v2/containers/{completion_spec.container_id}/status"),
-            json=completion_spec)
+            json=completion_spec.json())
 
         if response.status_code != 200:
             log.error(f"register build complete sent back {response}")
