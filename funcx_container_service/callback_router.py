@@ -10,7 +10,6 @@ from .config import Settings
 from .container import Container
 from .models import ContainerSpec, BuildSpec, BuildCompletionSpec
 
-
 log = logging.getLogger("funcx_container_service")
 
 
@@ -120,6 +119,7 @@ def register_build_completion(body: BuildCompletionSpec):
 async def register_build_complete(completion_spec: BuildCompletionSpec, settings: Settings):
 
     async with httpx.AsyncClient() as client:
+        log.info(f'updating status with message: {pformat(completion_spec)}')
         response = await client.put(urljoin(
             settings.WEBSERVICE_URL,
             f"v2/containers/{completion_spec.container_id}/status"),
