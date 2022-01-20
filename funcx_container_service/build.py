@@ -11,7 +11,7 @@ from docker.errors import ImageNotFound
 
 from .callback_router import register_build_starting
 from .models import ContainerSpec, BuildCompletionSpec
-from .container import Container, ContainerState
+from .container import Container, BuildStatus
 from .config import Settings
 
 
@@ -45,7 +45,7 @@ async def simple_background_build(container: Container,
     :param UUID RUN_ID: unique identifier of the instance of this container building service
     """
 
-    # check container.container_state to see if we should build
+    # check container.build_status to see if we should build
     if container.start_build(RUN_ID, settings):
 
         await register_build_starting(container, settings)
@@ -71,17 +71,17 @@ async def simple_background_build(container: Container,
 
                     # check for failed build
                     if completion_spec.repo2docker_return_code != 0:
-                        container.state = ContainerState.failed
+                        container.build_status = BuildStatus.failed
                         return
 
                     container.container_size = completion_spec.container_size
 
                     # on successful build, push container to registry
                     image_name = docker_name(container.container_id)
-                    push_image(image_name, settings)
+                    push_image(image_name, completion_spec, settings)
 
                     # update container state upon successful build
-                    container.build_status = ContainerState.ready
+                    container.build_status = BuildStatus.complete
 
         finally:
 
@@ -127,12 +127,12 @@ async def repo2docker_build(container, temp_dir, docker_client_version):
     if stdout.decode():
         stdout_msg = stdout.decode()
         logging.info(f'REPO2DOCKER: {stdout_msg}')
-        completion_spec.stdout = stdout_msg
+        completion_spec.repo2docker_stdout = stdout_msg
 
     if stderr.decode():
         err_msg = stderr.decode()
         logging.error(f'REPO2DOCKER: {err_msg}')
-        completion_spec.stderr = err_msg
+        completion_spec.repo2docker_stderr = err_msg
 
     await process.wait()
 
@@ -147,7 +147,7 @@ async def repo2docker_build(container, temp_dir, docker_client_version):
     return completion_spec
 
 
-def push_image(image_name, settings):
+def push_image(image_name, completion_spec, settings):
 
     docker_client = docker.APIClient(base_url=DOCKER_BASE_URL)
 
@@ -157,6 +157,7 @@ def push_image(image_name, settings):
 
     if d_response['Status'] == 'Login Succeeded':
 
+        push_logs = []
         tag_string = 'latest'
 
         docker_client.tag(image_name,
@@ -172,8 +173,17 @@ def push_image(image_name, settings):
                                        tag=tag_string,
                                        auth_config=auth_dict):
             log.info(line)
+            push_logs.append(line)
 
         log.info(f'docker image {image_name} sent to {settings.REGISTRY_USERNAME}/{image_name}:{tag_string}')
+
+        completion_spec.registry_url = settings.REGISTRY_URL
+        completion_spec.registry_repository = image_name
+        completion_spec.registry_user = settings.REGISTRY_USERNAME
+        completion_spec.image_tag = tag_string
+        registry_uri = settings.REGISTRY_URL.lstrip('https://').lstrip('http://')
+        completion_spec.image_pull_command = (f"docker pull {registry_uri}/{image_name}")
+        completion_spec.docker_push_log = str(push_logs)
 
 
 def s3_connection():

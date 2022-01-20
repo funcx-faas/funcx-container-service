@@ -1,6 +1,6 @@
 import uuid
 from . import callback_router
-from .models import ContainerSpec, ContainerState
+from .models import ContainerSpec, BuildStatus
 
 
 class Container():
@@ -16,17 +16,15 @@ class Container():
         self.container_id = container_spec.container_id
         self.build_id = str(uuid.uuid4())
         self.RUN_ID = RUN_ID
-        self.build_status = ContainerState.pending
-        self.container_state = None
+        self.build_status = BuildStatus.pending
         self.container_build_process = None
         self.build_spec = None
-        self.container_state = ContainerState.pending
 
     """
     from definition of container object in database.py:
     id = Column(String, primary_key=True)
     last_used = Column(DateTime)
-    state = Column(Enum(ContainerState))
+    state = Column(Enum(BuildStatus))
     specification = Column(String)
     docker_size = Column(Integer)
     singularity_size = Column(Integer)
@@ -51,16 +49,16 @@ class Container():
 
     def start_build(self, RUN_ID, settings):
 
-        if self.container_state == ContainerState.ready:
+        if self.build_status == BuildStatus.complete:
             # nothing to do
             return False
-        elif self.container_state == ContainerState.failed:
+        elif self.build_status == BuildStatus.failed:
             # already failed, not going to change
             return False
-        elif (self.container_state == ContainerState.building and self.container_build_process == RUN_ID):
+        elif (self.build_status == BuildStatus.building and self.container_build_process == RUN_ID):
             # build already started by this server
             return False
-        elif self.container_state == ContainerState.building:
+        elif self.build_status == BuildStatus.building:
             # build from a previous (crashed) server, clean up
             # await build.remove(db, container_id)
 
@@ -68,6 +66,6 @@ class Container():
             # build.remove(self.container_id)
             pass
 
-        self.container_state = ContainerState.building
+        self.build_status = BuildStatus.building
         self.container_build_process = RUN_ID
         return True

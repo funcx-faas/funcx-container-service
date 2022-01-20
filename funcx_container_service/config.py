@@ -9,10 +9,6 @@ class Settings(BaseSettings):
     REGISTRY_USERNAME: Optional[str] = None
     REGISTRY_PWD: Optional[str] = None
     REGISTRY_URL: Optional[str] = None
-    # def __init__(self):
-    #     config = dotenv_values(".env")
-    #     pdb.set_trace()
-    #     self.webservice_url = config['WEBSERVICE_URL']
 
     class Config:
         env_prefix = ''
