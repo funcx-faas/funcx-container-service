@@ -109,7 +109,7 @@ async def register_build_starting(container: Container, settings: Settings):
             json=build_spec.json())
 
         if response.status_code != 200:
-            log.error(f"register build complete sent back {response}")
+            log.error(f"register build start sent back {response}")
 
 
 @build_callback_router.put('<webservice_url>/v2/containers/<container_id>/status')

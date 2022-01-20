@@ -173,6 +173,8 @@ def push_image(image_name, settings):
                                        auth_config=auth_dict):
             log.info(line)
 
+        log.info(f'docker image {image_name} sent to {settings.REGISTRY_USERNAME}/{image_name}:{tag_string}')
+
 
 def s3_connection():
     return boto3.client('s3')
