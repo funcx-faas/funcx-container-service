@@ -235,15 +235,15 @@ def env_from_spec(spec):
     can build the python environment
     """
 
-    out = {
+    env_content = {
         "name": "funcx-container",
         "channels": ["conda-forge"],
         "dependencies": ["pip"]
     }
     if spec.conda:
         # append conda packages to dependencies list
-        out["dependencies"] += list(spec.conda)
+        env_content["dependencies"] += list(spec.conda)
     if spec.pip:
         # append dict with {pip:[packages]} to dependencies list
-        out["dependencies"].append({"pip": list(spec.pip)})
-    return out
+        env_content["dependencies"].append({"pip": list(spec.pip)})
+    return env_content
