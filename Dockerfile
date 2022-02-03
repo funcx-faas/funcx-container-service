@@ -10,9 +10,10 @@ WORKDIR /opt/
 COPY ./requirements.txt .
 RUN pip install -r ./requirements.txt
 
+COPY main.py ./main.py
 COPY ./funcx_container_service/ ./funcx_container_service/
 
 USER http
-EXPOSE 5000
+EXPOSE 8000
 
-CMD uvicorn funcx_container_service:app --host '0.0.0.0' --port 5000
+CMD PYTHONPATH=./funcx_container_service python main.py
