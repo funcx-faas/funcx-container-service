@@ -147,6 +147,7 @@ async def test_empty_build_from_spec(empty_container_fixture,
 
     remove_image(empty_container_fixture.container_id)
 
+
 @pytest.mark.integration_test
 @pytest.mark.asyncio
 async def test_pip_build_from_spec(pip_container_fixture,

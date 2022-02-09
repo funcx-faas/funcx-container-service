@@ -81,7 +81,7 @@ async def simple_background_build(container: Container,
                     push_image(image_name, completion_spec, settings)
 
                     # update container state upon successful build
-                    container.build_status = BuildStatus.complete
+                    container.build_status = BuildStatus.ready
 
         finally:
 
@@ -118,6 +118,7 @@ async def repo2docker_build(container, temp_dir, docker_client_version):
 
     process = await asyncio.create_subprocess_shell(REPO2DOCKER_CMD.format(docker_name(container.container_id),
                                                                            temp_dir),
+                                                    env={"DOCKER_HOST": DOCKER_BASE_URL},
                                                     stdout=asyncio.subprocess.PIPE,
                                                     stderr=asyncio.subprocess.PIPE)
 
