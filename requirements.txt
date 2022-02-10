@@ -1,6 +1,7 @@
 jupyter-repo2docker
 fastapi[uvicorn]
 python-multipart
+python-dotenv
 uvicorn
 SQLAlchemy
 docker
