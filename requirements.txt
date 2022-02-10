@@ -1,5 +1,5 @@
 jupyter-repo2docker
-fastapi[all]
+fastapi[uvicorn]
 python-multipart
 uvicorn
 SQLAlchemy

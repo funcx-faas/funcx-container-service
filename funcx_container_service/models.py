@@ -46,9 +46,9 @@ class ContainerSpec(BaseModel):
 
 
 class BuildStatus(str, Enum):
-    pending = 'pending'
+    queued = 'queued'
     building = 'building'
-    complete = 'complete'
+    ready = 'ready'
     failed = 'failed'
 
 

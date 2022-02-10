@@ -79,7 +79,8 @@ async def register_building(container: Container, settings: Settings):
         response = await client.put(urljoin(
             settings.WEBSERVICE_URL,
             f"v2/containers/{build_spec.container_id}/status"),
-            json=build_spec.json())
+            headers={'Content-Type': 'application/json'},
+            content=build_spec.json())
 
         if response.status_code != 200:
             log.error(f"register build sent back {response}")
@@ -105,7 +106,8 @@ async def register_build_starting(container: Container, settings: Settings):
         response = await client.put(urljoin(
             settings.WEBSERVICE_URL,
             f"v2/containers/{build_spec.container_id}/status"),
-            json=build_spec.json())
+            headers={'Content-Type': 'application/json'},
+            content=build_spec.json())
 
         if response.status_code != 200:
             log.error(f"register build start sent back {response}")
@@ -123,7 +125,8 @@ async def register_build_complete(completion_spec: BuildCompletionSpec, settings
         response = await client.put(urljoin(
             settings.WEBSERVICE_URL,
             f"v2/containers/{completion_spec.container_id}/status"),
-            json=completion_spec.json())
+            headers={'Content-Type': 'application/json'},
+            content=completion_spec.json())
 
         if response.status_code != 200:
             log.error(f"register build complete sent back {response}")

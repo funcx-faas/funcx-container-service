@@ -16,7 +16,7 @@ class Container():
         self.container_id = container_spec.container_id
         self.build_id = str(uuid.uuid4())
         self.RUN_ID = RUN_ID
-        self.build_status = BuildStatus.pending
+        self.build_status = BuildStatus.queued
         self.container_build_process = None
         self.build_spec = None
 
@@ -49,7 +49,7 @@ class Container():
 
     def start_build(self, RUN_ID, settings):
 
-        if self.build_status == BuildStatus.complete:
+        if self.build_status == BuildStatus.ready:
             # nothing to do
             return False
         elif self.build_status == BuildStatus.failed:

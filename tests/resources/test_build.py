@@ -117,6 +117,7 @@ def test_env_from_spec_combo(combo_container_spec_fixture):
                                    ]
 
 
+@pytest.mark.integration_test
 @pytest.mark.asyncio
 async def test_build_spec_to_file(container_id_fixture,
                                   blank_container_spec_fixture,
