@@ -15,7 +15,7 @@ from .container import Container, BuildStatus
 from .config import Settings
 
 
-REPO2DOCKER_CMD = 'jupyter-repo2docker --no-run --image-name {} {}'
+REPO2DOCKER_CMD = '/Users/stevenwangen/projects/materials_science/container_service/funcx_venv/bin/jupyter-repo2docker --no-run --image-name {} {}'
 SINGULARITY_CMD = 'singularity build --force {} docker-daemon://{}:latest'
 DOCKER_BASE_URL = 'unix://var/run/docker.sock'
 log = logging.getLogger("funcx_container_service")
@@ -72,16 +72,16 @@ async def simple_background_build(container: Container,
                     # check for failed build
                     if completion_spec.repo2docker_return_code != 0:
                         container.build_status = BuildStatus.failed
-                        return
+
+                    else:
+                        # on successful build, push container to registry
+                        image_name = docker_name(container.container_id)
+                        push_image(image_name, completion_spec, settings)
+
+                        # update container state upon successful build
+                        container.build_status = BuildStatus.ready
 
                     container.container_size = completion_spec.container_size
-
-                    # on successful build, push container to registry
-                    image_name = docker_name(container.container_id)
-                    push_image(image_name, completion_spec, settings)
-
-                    # update container state upon successful build
-                    container.build_status = BuildStatus.ready
 
         finally:
 
@@ -89,7 +89,7 @@ async def simple_background_build(container: Container,
 
         completion_registration = await container.register_build_complete(completion_spec, settings)
 
-        log.info(completion_registration)
+        log.info(f'completion_registiation: {completion_registration}')
 
 
 async def build_spec_to_file(container_id, spec, tmp_dir):
@@ -122,26 +122,24 @@ async def repo2docker_build(container, temp_dir, docker_client_version):
                                                     stdout=asyncio.subprocess.PIPE,
                                                     stderr=asyncio.subprocess.PIPE)
 
-    stdout = await process.stdout.read()
-    stderr = await process.stderr.read()
-
-    if stdout.decode():
-        stdout_msg = stdout.decode()
-        logging.info(f'REPO2DOCKER: {stdout_msg}')
-        completion_spec.repo2docker_stdout = stdout_msg
-
-    if stderr.decode():
-        err_msg = stderr.decode()
-        logging.error(f'REPO2DOCKER: {err_msg}')
-        completion_spec.repo2docker_stderr = err_msg
+    # after lots of investigation, it looks like repo2docker only communicates on stderr :/
+    stdout_msg, stderr_msg = await process.communicate()
 
     await process.wait()
 
     if process.returncode != 0:
         logging.error(f'Return code {process.returncode} produced while running \
             repo2docker for container_id: {container.container_id}')
+        err_msg = stderr_msg.decode().splitlines()
+        logging.error(f'REPO2DOCKER: {err_msg}')
+        completion_spec.repo2docker_stderr = err_msg
 
         completion_spec.repo2docker_return_code = process.returncode
+
+    else:
+        out_msg = stderr_msg.decode().splitlines()
+        logging.info(f'REPO2DOCKER: {out_msg}')
+        completion_spec.repo2docker_stdout = out_msg
 
     completion_spec.container_size = docker_size(container.container_id)
 
