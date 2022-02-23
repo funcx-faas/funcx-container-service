@@ -15,7 +15,14 @@ from .container import Container, BuildStatus
 from .config import Settings
 
 
-REPO2DOCKER_CMD = '/Users/stevenwangen/projects/materials_science/container_service/funcx_venv/bin/jupyter-repo2docker --no-run --image-name {} {}'
+settings = Settings()
+
+if settings.REPO2DOCKER_PATH:
+    r2d_path = settings.REPO2DOCKER_PATH
+else:
+    r2d_path = 'jupyter-repo2docker'
+
+REPO2DOCKER_CMD = f'{r2d_path} --no-run --image-name {{}} {{}}'
 SINGULARITY_CMD = 'singularity build --force {} docker-daemon://{}:latest'
 DOCKER_BASE_URL = 'unix://var/run/docker.sock'
 log = logging.getLogger("funcx_container_service")

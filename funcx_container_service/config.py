@@ -9,6 +9,7 @@ class Settings(BaseSettings):
     REGISTRY_USERNAME: Optional[str] = None
     REGISTRY_PWD: Optional[str] = None
     REGISTRY_URL: Optional[str] = None
+    REPO2DOCKER_PATH: Optional[str] = None
 
     class Config:
         env_prefix = ''
