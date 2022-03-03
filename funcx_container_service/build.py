@@ -1,18 +1,22 @@
 import json
 import asyncio
 import tempfile
-import docker
-import boto3
 import logging
+from pprint import pformat
 from uuid import UUID
 
-from pathlib import Path
+import boto3
+import docker
 from docker.errors import ImageNotFound
+from fastapi import BackgroundTasks
+from pathlib import Path
 
 from .callback_router import register_build_starting
-from .models import ContainerSpec, BuildCompletionSpec
+from .models import ContainerSpec, BuildCompletionSpec, S3BuildRequest
 from .container import Container, BuildStatus
 from .config import Settings
+
+import pdb
 
 
 settings = Settings()
@@ -28,16 +32,80 @@ DOCKER_BASE_URL = 'unix://var/run/docker.sock'
 log = logging.getLogger("funcx_container_service")
 
 
-class Build():
-    pass
-    # id = Column(String, primary_key=True)
-    # container_hash = Column(String, ForeignKey('containers.id'))
-    # Add auth/user info
+async def build_from_s3(build_request: S3BuildRequest,
+                        settings: Settings,
+                        RUN_ID: UUID,
+                        tasks: BackgroundTasks):
 
-    # container = relationship('Container', back_populates='builds')
+    log.info(f'build_from_s3 request received for run_id {RUN_ID}:')
+    log.info(pformat(build_request))
+
+    temp_dir = tempfile.TemporaryDirectory()
+
+    # download spec and payload from S3
+    spec_file, payload_file = download_from_s3(build_request, temp_dir)
+
+    # instantiate a specification object from the downloaded file
+    spec = spec_from_file(spec_file)
+
+    # instantiate container object
+    container = Container(spec, RUN_ID)
+
+    # register a build (build_id + container_id) with database and return the build_id
+    build_response = await container.register_building(RUN_ID, settings)
+
+    # if build_response.status_code == 200:
+    if build_response:  # testing
+
+        # kickoff the build process in the background
+        log.info("Starting container build process - adding 'simple_background_build' to tasks...")
+        tasks.add_task(simple_background_build, temp_dir, container, settings, RUN_ID)
+
+        # return success start message
+        return {"container_id": str(container.container_id),
+                "build_id": str(container.build_id),
+                "RUN_ID": str(container.RUN_ID)}
+
+    else:
+        temp_dir.cleanup()
+        return {"msg": f"webservice returned {build_response} when attempting to register the build"}
 
 
-async def simple_background_build(container: Container,
+async def build_from_request(spec: ContainerSpec,
+                             settings: Settings,
+                             RUN_ID: UUID,
+                             tasks: BackgroundTasks):
+
+    log.info(f'container specification received for run_id {RUN_ID}')
+    log.info(pformat(spec))
+
+    temp_dir = tempfile.TemporaryDirectory()
+
+    # instantiate container object
+    container = Container(spec, RUN_ID)
+
+    # register a build (build_id + container_id) with database and return the build_id
+    build_response = await container.register_building(RUN_ID, settings)
+
+    # if build_response.status_code == 200:
+    if build_response:  # testing
+        
+        # kickoff the build process in the background
+        log.info("Starting container build process - adding 'simple_background_build' to tasks...")
+        tasks.add_task(simple_background_build, tempdir, container, settings, RUN_ID)
+
+        # return success start message
+        return {"container_id": str(container.container_id),
+                "build_id": str(container.build_id),
+                "RUN_ID": str(container.RUN_ID)}
+    else:
+        return {"msg": f"webservice returned {build_response} when attempting to register the build"}
+
+    
+
+
+async def simple_background_build(temp_dir: tempfile.TemporaryDirectory,
+                                  container: Container,
                                   settings: Settings,
                                   RUN_ID: UUID):
     """
@@ -57,46 +125,56 @@ async def simple_background_build(container: Container,
 
         await register_build_starting(container, settings)
 
-        docker_client = docker.APIClient(base_url=DOCKER_BASE_URL)
         try:
+            docker_client = docker.APIClient(base_url=DOCKER_BASE_URL)
 
-            with tempfile.TemporaryDirectory() as tmp:
-                tmp = Path(tmp)
-
-                # register start of build with webservice
-                # container.register_build(RUN_UD, settings)
-
+            if container.container_spec:
+                
                 # write spec to file
-                if container.container_spec:
-                    await build_spec_to_file(
-                        container.container_id,
-                        ContainerSpec.parse_raw(container.container_spec.json()),
-                        tmp)
+                await build_spec_to_file(
+                    container.container_id,
+                    ContainerSpec.parse_raw(container.container_spec.json()),
+                    temp_dir.name)
 
-                    # build container with docker
-                    completion_spec = await repo2docker_build(container, tmp, docker_client.version())
+                # build container with docker
+                completion_spec = await repo2docker_build(container, temp_dir.name, docker_client.version())
 
-                    # check for failed build
-                    if completion_spec.repo2docker_return_code != 0:
-                        container.build_status = BuildStatus.failed
+                # check for failed build
+                if completion_spec.repo2docker_return_code != 0:
+                    container.build_status = BuildStatus.failed
 
-                    else:
-                        # on successful build, push container to registry
-                        image_name = docker_name(container.container_id)
-                        push_image(image_name, completion_spec, settings)
+                else:
+                    # on successful build, push container to registry
+                    image_name = docker_name(container.container_id)
+                    push_image(image_name, completion_spec, settings)
 
-                        # update container state upon successful build
-                        container.build_status = BuildStatus.ready
+                    # update container state upon successful build
+                    container.build_status = BuildStatus.ready
 
-                    container.container_size = completion_spec.container_size
+                container.container_size = completion_spec.container_size
 
-        finally:
+                completion_spec.build_status = container.build_status
 
-            completion_spec.build_status = container.build_status
+                completion_registration = await container.register_build_complete(completion_spec, settings)
 
-        completion_registration = await container.register_build_complete(completion_spec, settings)
+                log.info(f'completion_registiation: {completion_registration}')
 
-        log.info(f'completion_registiation: {completion_registration}')
+            else:
+                raise Exception("Container spec not present!")
+
+        except docker.errors.DockerException as e:
+            
+            log.error(f'Exception raised trying to instantiate docker client: {e} - is docker running and accessible?')
+            container.build_status = BuildStatus.failed
+            await container.register_build_failed(e, settings)
+            exit(1)
+
+        except Exception as e:
+            
+            log.error(f'Exception raised trying to start building: {e} - is docker running and accessible?')
+            container.build_status = BuildStatus.failed
+            await container.register_build_failed(e, settings)
+            exit(1)
 
 
 async def build_spec_to_file(container_id, spec, tmp_dir):
@@ -105,9 +183,9 @@ async def build_spec_to_file(container_id, spec, tmp_dir):
     be accessed by repo2docker for the build process
     """
     if spec.apt:
-        with (tmp_dir / 'apt.txt').open('w') as f:
+        with open(tmp_dir + '/apt.txt', 'w') as f:
             f.writelines([x + '\n' for x in spec.apt])
-    with (tmp_dir / 'environment.yml').open('w') as f:
+    with open(tmp_dir + '/environment.yml', 'w') as f:
         json.dump(env_from_spec(spec), f, indent=4)
 
 
@@ -192,6 +270,43 @@ def push_image(image_name, completion_spec, settings):
         completion_spec.docker_push_log = str(push_logs)
 
 
+def spec_from_file(spec_file):
+    # file to dict
+    open_spec_file = open(spec_file)
+    spec_dict = json.load(open_spec_file)
+
+    log.info(f'spec file contents: {pformat(spec_dict)}')
+
+    # dict to containerSpec
+    spec = ContainerSpec(container_type = spec_dict['container_type'],
+                         container_id = spec_dict['container_id'],
+                         apt = spec_dict['apt'],
+                         pip = spec_dict['pip'],
+                         conda = spec_dict['conda']) 
+
+    return spec
+
+
+def download_from_s3(build_request, temp_dir):
+
+    s3 = s3_connection()
+
+    temp_spec = temp_dir.name + 'container_spec.json'
+    temp_payload = temp_dir.name + '/payload'
+
+    s3_download(s3,
+                build_request.container_spec_bucket,
+                build_request.container_spec_object,
+                temp_spec)
+
+    s3_download(s3,
+                build_request.payload_bucket,
+                build_request.payload_object,
+                temp_payload)
+
+    return temp_spec, temp_payload
+
+
 def s3_connection():
     return boto3.client('s3')
 
@@ -202,6 +317,10 @@ def ecr_connection():
 
 def s3_upload(s3, filename, bucket, key):
     s3.upload_file(filename, bucket, key)
+
+
+def s3_download(s3, bucket, s3_object, destination):
+    s3.download_file(bucket, s3_object, destination)
 
 
 def s3_check(db, s3, bucket, container_id):

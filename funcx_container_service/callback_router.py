@@ -133,5 +133,20 @@ async def register_build_complete(completion_spec: BuildCompletionSpec, settings
             log.error(f"register build complete sent back {response}")
 
 
+async def register_build_failed(container_spec: ContainerSpec, message, settings: Settings):
+
+    async with httpx.AsyncClient() as client:
+        log.info(f'Build failed! updating webservice with message: {pformat(container_spec)}')
+
+        response = await client.put(urljoin(
+            settings.WEBSERVICE_URL,
+            f"v2/containers/{container_spec.container_id}/status"),
+            headers={'Content-Type': 'application/json'},
+            content=container_spec.json())
+
+        if response.status_code != 200:
+            log.error(f"register build failed sent back {response}")
+
+
 async def remove_build(container_id):
     pass

@@ -35,9 +35,9 @@ class Container():
         self.container_id = await callback_router.register_container_spec(self.container_spec, settings)
 
     async def register_building(self, RUN_ID, settings):
-        build_result = await callback_router.register_building(self,
-                                                               settings)
+        build_result = await callback_router.register_building(self, settings)
         return build_result
+
 
     async def register_build_complete(self, completion_spec, settings):
 
@@ -46,6 +46,12 @@ class Container():
         build_complete_result = await callback_router.register_build_complete(completion_spec, settings)
 
         return build_complete_result
+
+
+    async def register_build_failed(self, message, settings):
+        build_result = await callback_router.register_build_failed(self.container_spec, message, settings)
+        return build_result
+
 
     def start_build(self, RUN_ID, settings):
 

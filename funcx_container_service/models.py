@@ -45,6 +45,20 @@ class ContainerSpec(BaseModel):
         return hashlib.sha256(canonical.encode()).hexdigest()
 
 
+class S3BuildRequest(BaseModel):
+    """
+    Model for build request from webserver specifying S3 objects
+
+    Accepts the following software requirements:
+    - `container_spec_object`: S3 object name containing the specification for the container image build
+    - `payload_object`: S3 object name containing the payload to be inserted into the container image
+    """
+    container_spec_bucket: str
+    container_spec_object: str
+    payload_bucket: str
+    payload_object: str
+
+
 class BuildStatus(str, Enum):
     queued = 'queued'
     building = 'building'

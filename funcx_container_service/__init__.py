@@ -1,6 +1,5 @@
 from uuid import uuid4
 from functools import lru_cache
-from pprint import pformat
 
 from logging.config import dictConfig
 import logging
@@ -9,9 +8,9 @@ from .config import LogConfig
 from fastapi import (FastAPI, BackgroundTasks, Depends)
 
 from . import callback_router
-from .build import simple_background_build
+from .build import build_from_request, build_from_s3
 from .container import Container
-from .models import ContainerSpec
+from .models import ContainerSpec, S3BuildRequest
 from .config import Settings
 from .version import container_service_version
 
@@ -47,31 +46,25 @@ async def simple_build(spec: ContainerSpec,
     Build a container based on a JSON specification.
     Returns an ID that can be used to query container status.
     """
-    log.info(f'run_id: {RUN_ID}')
 
-    log.info('container specification received:')
-    log.info(pformat(spec))
+    build_response = build_from_request(spec, settings, RUN_ID, tasks)
 
-    # instantiate container object
-    container = Container(spec, RUN_ID)
+    return build_response
 
-    # register a build (build_id + container_id) with database and return the build_id
-    build_response = await container.register_building(RUN_ID, settings)
 
-    # for integration testing, going to punt on the build and just pretend it kicked off appropriately
-    # log.info('STUB: This is where the build process would happen...')
+@app.post("/build_from_s3", callbacks=callback_router.build_callback_router.routes)
+async def S3_build(build_request: S3BuildRequest,
+                   tasks: BackgroundTasks,
+                   settings: Settings = Depends(get_settings)):
+    """
+    Build a container using spec and payload obtained from S3 buckets.
+    Returns an ID that can be used to query container status.
+    """
+    log.info('got request to build from s3')
+    
+    build_response = await build_from_s3(build_request, settings, RUN_ID, tasks)
 
-    # kickoff the build process in the background
-    log.info("Starting container build process - adding 'simple_background_build' to tasks...")
-    tasks.add_task(simple_background_build, container, settings, RUN_ID)
-
-    # if build_response.status_code == 200:
-    if build_response:  # testing
-        return {"container_id": str(container.container_id),
-                "build_id": str(container.build_id),
-                "RUN_ID": str(container.RUN_ID)}
-    else:
-        return {"msg": f"webservice returned {build_response} when attempting to register the build"}
+    return build_response
 
 
 @app.get("/")
