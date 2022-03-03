@@ -9,7 +9,6 @@ from fastapi import (FastAPI, BackgroundTasks, Depends)
 
 from . import callback_router
 from .build import build_from_request, build_from_s3
-from .container import Container
 from .models import ContainerSpec, S3BuildRequest
 from .config import Settings
 from .version import container_service_version
@@ -61,7 +60,7 @@ async def S3_build(build_request: S3BuildRequest,
     Returns an ID that can be used to query container status.
     """
     log.info('got request to build from s3')
-    
+
     build_response = await build_from_s3(build_request, settings, RUN_ID, tasks)
 
     return build_response

@@ -9,14 +9,11 @@ import boto3
 import docker
 from docker.errors import ImageNotFound
 from fastapi import BackgroundTasks
-from pathlib import Path
 
 from .callback_router import register_build_starting
 from .models import ContainerSpec, BuildCompletionSpec, S3BuildRequest
 from .container import Container, BuildStatus
 from .config import Settings
-
-import pdb
 
 
 settings = Settings()
@@ -89,10 +86,10 @@ async def build_from_request(spec: ContainerSpec,
 
     # if build_response.status_code == 200:
     if build_response:  # testing
-        
+
         # kickoff the build process in the background
         log.info("Starting container build process - adding 'simple_background_build' to tasks...")
-        tasks.add_task(simple_background_build, tempdir, container, settings, RUN_ID)
+        tasks.add_task(simple_background_build, temp_dir, container, settings, RUN_ID)
 
         # return success start message
         return {"container_id": str(container.container_id),
@@ -100,8 +97,6 @@ async def build_from_request(spec: ContainerSpec,
                 "RUN_ID": str(container.RUN_ID)}
     else:
         return {"msg": f"webservice returned {build_response} when attempting to register the build"}
-
-    
 
 
 async def simple_background_build(temp_dir: tempfile.TemporaryDirectory,
@@ -129,7 +124,7 @@ async def simple_background_build(temp_dir: tempfile.TemporaryDirectory,
             docker_client = docker.APIClient(base_url=DOCKER_BASE_URL)
 
             if container.container_spec:
-                
+
                 # write spec to file
                 await build_spec_to_file(
                     container.container_id,
@@ -163,14 +158,14 @@ async def simple_background_build(temp_dir: tempfile.TemporaryDirectory,
                 raise Exception("Container spec not present!")
 
         except docker.errors.DockerException as e:
-            
+
             log.error(f'Exception raised trying to instantiate docker client: {e} - is docker running and accessible?')
             container.build_status = BuildStatus.failed
             await container.register_build_failed(e, settings)
             exit(1)
 
         except Exception as e:
-            
+
             log.error(f'Exception raised trying to start building: {e} - is docker running and accessible?')
             container.build_status = BuildStatus.failed
             await container.register_build_failed(e, settings)
@@ -278,11 +273,11 @@ def spec_from_file(spec_file):
     log.info(f'spec file contents: {pformat(spec_dict)}')
 
     # dict to containerSpec
-    spec = ContainerSpec(container_type = spec_dict['container_type'],
-                         container_id = spec_dict['container_id'],
-                         apt = spec_dict['apt'],
-                         pip = spec_dict['pip'],
-                         conda = spec_dict['conda']) 
+    spec = ContainerSpec(container_type=spec_dict['container_type'],
+                         container_id=spec_dict['container_id'],
+                         apt=spec_dict['apt'],
+                         pip=spec_dict['pip'],
+                         conda=spec_dict['conda'])
 
     return spec
 
