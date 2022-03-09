@@ -4,7 +4,7 @@ from datetime import datetime
 from enum import Enum
 from uuid import UUID
 from typing import Optional, List
-from pydantic import BaseModel, constr
+from pydantic import BaseModel, constr, HttpUrl
 
 
 class ContainerRuntime(str, Enum):
@@ -20,6 +20,8 @@ class ContainerSpec(BaseModel):
 
     Accepts the following software requirements:
     - `container_type`: Name of container runtime
+    - `container_id`: UUID to uniquely identify the container image
+    - `payload_url`: url to the source of the payload for the container image
     - `apt`: list of package names to be installed via apt-get
     - `pip`: list of pip requirements (name and optional version specifier)
     - `conda`: list of conda requirements (name and optional version specifier)
@@ -32,6 +34,7 @@ class ContainerSpec(BaseModel):
     # https://github.com/jupyterhub/repo2docker/blob/560b1d96a0e39cb8de53cb41a7c2d8d23384eb82/repo2docker/buildpacks/base.py#L675
     container_type: ContainerRuntime
     container_id: UUID
+    payload_url: HttpUrl
     apt: Optional[List[constr(regex=r'^[a-z0-9.+-]+$')]]  # noqa: F722
     pip: Optional[List[str]]
     conda: Optional[List[str]]

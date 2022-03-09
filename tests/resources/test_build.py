@@ -8,9 +8,9 @@ import shutil
 
 from funcx_container_service.container import Container
 from funcx_container_service.models import ContainerSpec
-from funcx_container_service.build import (repo2docker_build, build_spec_to_file, docker_name,
-                                           DOCKER_BASE_URL, env_from_spec)
-
+from funcx_container_service.build import (build_spec_to_file, docker_name,
+                                           DOCKER_BASE_URL, env_from_spec, spec_from_file)
+import funcx_container_service.build
 
 def remove_image(container_id):
     print(f'DONE: removing docker image {docker_name(container_id)}')
@@ -37,6 +37,7 @@ def temp_dir_fixture():
 def blank_container_spec_fixture():
     mock_spec = ContainerSpec(container_type="Docker",
                               container_id=uuid.uuid4(),
+                              payload_url='http://www.example.com',
                               apt=[]
                               )
     return mock_spec
@@ -46,6 +47,7 @@ def blank_container_spec_fixture():
 def pip_container_spec_fixture():
     mock_spec = ContainerSpec(container_type="Docker",
                               container_id=uuid.uuid4(),
+                              payload_url='http://www.example.com',
                               pip=['beautifulsoup4', 'flask==2.0.1', 'scikit-learn', 'pandas']
                               )
     return mock_spec
@@ -55,6 +57,7 @@ def pip_container_spec_fixture():
 def apt_container_spec_fixture():
     mock_spec = ContainerSpec(container_type="Docker",
                               container_id=uuid.uuid4(),
+                              payload_url='http://www.example.com',
                               apt=['rolldice']
                               )
     return mock_spec
@@ -64,6 +67,7 @@ def apt_container_spec_fixture():
 def conda_container_spec_fixture():
     mock_spec = ContainerSpec(container_type="Docker",
                               container_id=uuid.uuid4(),
+                              payload_url='http://www.example.com',
                               conda=['pandas']
                               )
     return mock_spec
@@ -73,6 +77,7 @@ def conda_container_spec_fixture():
 def combo_container_spec_fixture():
     mock_spec = ContainerSpec(container_type="Docker",
                               container_id=uuid.uuid4(),
+                              payload_url='http://www.example.com',
                               conda=['pandas'],
                               pip=['beautifulsoup4', 'flask==2.0.1', 'scikit-learn']
                               )
@@ -116,6 +121,20 @@ def test_env_from_spec_combo(combo_container_spec_fixture):
                                    {'pip': combo_container_spec_fixture.pip}
                                    ]
 
+@pytest.mark.asyncio
+async def test_repo2docker(mocker, pip_container_fixture):
+    mocker.patch('funcx_container_service.build.repo2docker_build', return_value=True)
+    container = pip_container_fixture
+    temp_dir_name = '.'
+    docker_client_version = '1.0'
+
+    completion_spec = await funcx_container_service.build.repo2docker_build(container, temp_dir_name, docker_client_version)
+    assert completion_spec == True
+
+
+# def test_spec_from_file():
+#     test_spec = spec_from_file()
+#     assert True
 
 @pytest.mark.integration_test
 @pytest.mark.asyncio

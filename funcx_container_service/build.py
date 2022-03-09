@@ -1,7 +1,8 @@
-import json
 import asyncio
-import tempfile
+import json
 import logging
+import tempfile
+import urllib
 from pprint import pformat
 from uuid import UUID
 
@@ -11,9 +12,9 @@ from docker.errors import ImageNotFound
 from fastapi import BackgroundTasks
 
 from .callback_router import register_build_starting
-from .models import ContainerSpec, BuildCompletionSpec, S3BuildRequest
-from .container import Container, BuildStatus
 from .config import Settings
+from .container import Container, BuildStatus
+from .models import ContainerSpec, BuildCompletionSpec, S3BuildRequest
 
 
 settings = Settings()
@@ -81,6 +82,9 @@ async def build_from_request(spec: ContainerSpec,
     # instantiate container object
     container = Container(spec, RUN_ID)
 
+    # download payload
+    download_payload_from_url(spec.payload_url, temp_dir)
+
     # register a build (build_id + container_id) with database and return the build_id
     build_response = await container.register_building(RUN_ID, settings)
 
@@ -110,6 +114,7 @@ async def simple_background_build(temp_dir: tempfile.TemporaryDirectory,
     the container using repo2docker, push image to specified registry,
     and update webservice upon successful completion
 
+    :param temp_dir: Temporary directory generated for this request
     :param Container container: The Container object instance
     :param Settings settings: Settings object with required metadata
     :param UUID RUN_ID: unique identifier of the instance of this container building service
@@ -152,7 +157,7 @@ async def simple_background_build(temp_dir: tempfile.TemporaryDirectory,
 
                 completion_registration = await container.register_build_complete(completion_spec, settings)
 
-                log.info(f'completion_registiation: {completion_registration}')
+                log.info(f'Build process complete - finished with: {completion_registration}')
 
             else:
                 raise Exception("Container spec not present!")
@@ -300,6 +305,15 @@ def download_from_s3(build_request, temp_dir):
                 temp_payload)
 
     return temp_spec, temp_payload
+
+
+def download_payload_from_url(payload_url, temp_dir):
+
+    temp_payload = temp_dir.name + '/payload'
+
+    with urllib.request.urlopen(payload_url) as f:
+        with open(temp_payload, 'wb') as output:
+            output.write(f.read())
 
 
 def s3_connection():

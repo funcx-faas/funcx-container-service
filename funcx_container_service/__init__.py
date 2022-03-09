@@ -45,8 +45,9 @@ async def simple_build(spec: ContainerSpec,
     Build a container based on a JSON specification.
     Returns an ID that can be used to query container status.
     """
+    log.info('got request to build from json')
 
-    build_response = build_from_request(spec, settings, RUN_ID, tasks)
+    build_response = await build_from_request(spec, settings, RUN_ID, tasks)
 
     return build_response
 
