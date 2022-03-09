@@ -139,7 +139,9 @@ async def test_repo2docker(mocker, pip_container_fixture):
     temp_dir_name = '.'
     docker_client_version = '1.0'
 
-    completion_spec = await funcx_container_service.build.repo2docker_build(container, temp_dir_name, docker_client_version)
+    completion_spec = await funcx_container_service.build.repo2docker_build(container, 
+                                                                            temp_dir_name, 
+                                                                            docker_client_version)
     assert completion_spec
 
 
