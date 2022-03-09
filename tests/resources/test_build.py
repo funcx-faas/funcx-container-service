@@ -9,8 +9,10 @@ import shutil
 from funcx_container_service.container import Container
 from funcx_container_service.models import ContainerSpec
 from funcx_container_service.build import (build_spec_to_file, docker_name,
-                                           DOCKER_BASE_URL, env_from_spec, spec_from_file)
+                                           DOCKER_BASE_URL, env_from_spec)
+from funcx_container_service.config import Settings
 import funcx_container_service.build
+
 
 def remove_image(container_id):
     print(f'DONE: removing docker image {docker_name(container_id)}')
@@ -121,6 +123,15 @@ def test_env_from_spec_combo(combo_container_spec_fixture):
                                    {'pip': combo_container_spec_fixture.pip}
                                    ]
 
+
+@pytest.fixture
+def settings_fixture():
+    settings = Settings()
+    settings.app_name = 'mocked_settings_app'
+    settings.admin_email = 'testing_admin@example.com'
+    return settings
+
+
 @pytest.mark.asyncio
 async def test_repo2docker(mocker, pip_container_fixture):
     mocker.patch('funcx_container_service.build.repo2docker_build', return_value=True)
@@ -129,12 +140,24 @@ async def test_repo2docker(mocker, pip_container_fixture):
     docker_client_version = '1.0'
 
     completion_spec = await funcx_container_service.build.repo2docker_build(container, temp_dir_name, docker_client_version)
-    assert completion_spec == True
+    assert completion_spec
 
 
-# def test_spec_from_file():
-#     test_spec = spec_from_file()
-#     assert True
+@pytest.mark.skip(reason="working out complexities of mocking everything (particularly BackgroundTasks)")
+@pytest.mark.asyncio
+async def test_build_from_request(mocker,
+                                  container=pip_container_fixture,
+                                  settings=settings_fixture):
+
+    # mocker.patch(download_payload_from_url, return_value=True)
+    # mocker.patch(container.register_building, return_value=True)
+
+    # funcx_container_service.build.build_from_request(container.container_spec,
+    #                                                  settings,
+    #                                                  container.RUN_ID,
+    #                                                  tasks: BackgroundTasks)
+    pass
+
 
 @pytest.mark.integration_test
 @pytest.mark.asyncio
@@ -158,9 +181,9 @@ async def test_empty_build_from_spec(empty_container_fixture,
                              empty_container_fixture.container_spec,
                              temp_dir_fixture)
 
-    build_response = await repo2docker_build(empty_container_fixture,
-                                             temp_dir_fixture,
-                                             '1.0')
+    build_response = await funcx_container_service.build.repo2docker_build(empty_container_fixture,
+                                                                           temp_dir_fixture,
+                                                                           '1.0')
 
     assert build_response.repo2docker_return_code == 0
 
@@ -176,9 +199,9 @@ async def test_pip_build_from_spec(pip_container_fixture,
                              pip_container_fixture.container_spec,
                              temp_dir_fixture)
 
-    build_response = await repo2docker_build(pip_container_fixture,
-                                             temp_dir_fixture,
-                                             '1.0')
+    build_response = await funcx_container_service.build.repo2docker_build(pip_container_fixture,
+                                                                           temp_dir_fixture,
+                                                                           '1.0')
 
     assert build_response.repo2docker_return_code == 0
 
@@ -194,9 +217,9 @@ async def test_apt_build_from_spec(apt_container_fixture,
                              apt_container_fixture.container_spec,
                              temp_dir_fixture)
 
-    build_response = await repo2docker_build(apt_container_fixture,
-                                             temp_dir_fixture,
-                                             '1.0')
+    build_response = await funcx_container_service.build.repo2docker_build(apt_container_fixture,
+                                                                           temp_dir_fixture,
+                                                                           '1.0')
 
     assert build_response.repo2docker_return_code == 0
 
