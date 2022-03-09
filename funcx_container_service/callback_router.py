@@ -111,7 +111,8 @@ async def register_build_starting(container: Container, settings: Settings):
             content=build_spec.json())
 
         if response.status_code != 200:
-            log.error(f"callback_router.register_build_start() recieved the following response from the webserver: {response}")
+            log.error(f"""callback_router.register_build_start()
+                          received the following response from the webserver: {response}""")
 
 
 @build_callback_router.put('<webservice_url>/v2/containers/<container_id>/status')
@@ -130,7 +131,8 @@ async def register_build_complete(completion_spec: BuildCompletionSpec, settings
             content=completion_spec.json())
 
         if response.status_code != 200:
-            log.error(f"callback_router.register_build_completion() recieved the following response from the webserver: {response}")
+            log.error(f"""callback_router.register_build_completion()
+                          recieved the following response from the webserver: {response}""")
 
 
 async def register_build_failed(container_spec: ContainerSpec, message, settings: Settings):
@@ -145,7 +147,8 @@ async def register_build_failed(container_spec: ContainerSpec, message, settings
             content=container_spec.json())
 
         if response.status_code != 200:
-            log.error(f"callback_router.register_build_failed() recieved the following response from the webserver: {response}")
+            log.error(f"""callback_router.register_build_failed()
+                          recieved the following response from the webserver: {response}""")
 
 
 async def remove_build(container_id):
