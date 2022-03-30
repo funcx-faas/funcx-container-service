@@ -4,6 +4,8 @@ The Container service runs in a container using FastAPI. It's
 responsible for creating and managing container environments for running
 functions on funcX.
 
+## Configuring the service
+
 A configuration file (titled '.env') is required at the top level of the
 repository which houses the configuration settings necessary to run
 the serivce. This file uses the VAR=VAL syntax and currently requires the
@@ -11,7 +13,16 @@ following VARs defined:
 
 ```
 WEBSERVICE_URL=<url for the webserivce that issues requests to the container service>
+REGISTRY_USERNAME=<registry username>
+REGISTRY_PWD=<registry password>
+REGISTRY_URL=<url to registry>
 ```
+`WEBSERVICE_URL` is the webservice for the funcx service that registers the user submission for a container build via the sdk
+
+The `REGISTRY` variables define the access information for the registry to which the resulting image built by the container service should be stored
+
+
+## Running the service
 
 ## Development Setups
 For the full container service experience you will want a local instance of the
@@ -109,3 +120,18 @@ service will rely on for complete functionality.
 The Docker daemon needs to be running (with the control socket)
 bind mounted into the container if applicable. Also requires Singularity 3.x
 in the build environment.
+
+## Testing
+
+Two types of tests so far;
+	use `pytest -m "not integration_test" tests/resources` to only run
+	unit tests.
+	
+	To run integration tests, start docker as above and use
+	`pytest -m "integration_test" tests/resources`
+	
+	
+	
+
+
+

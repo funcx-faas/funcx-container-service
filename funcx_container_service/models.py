@@ -45,10 +45,10 @@ class ContainerSpec(BaseModel):
         return hashlib.sha256(canonical.encode()).hexdigest()
 
 
-class ContainerState(str, Enum):
+class BuildStatus(str, Enum):
     pending = 'pending'
     building = 'building'
-    ready = 'ready'
+    complete = 'complete'
     failed = 'failed'
 
 
@@ -56,6 +56,21 @@ class BuildSpec(BaseModel):
     container_id: UUID
     build_id: UUID
     RUN_ID: UUID
+    build_status: BuildStatus
+
+
+class BuildCompletionSpec(BuildSpec):
+    repo2docker_return_code: int = 0
+    repo2docker_stdout: Optional[str]
+    repo2docker_stderr: Optional[str]
+    container_size: float = 0
+    docker_client_version: str
+    registry_url: str = None
+    registry_repository: str = None
+    registry_user: str = None
+    docker_push_log: str = None
+    image_tag: str = None
+    image_pull_command: str = None
 
 
 class BuildResponse(BaseModel):

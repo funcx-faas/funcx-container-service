@@ -6,10 +6,9 @@ class Settings(BaseSettings):
     app_name: str = "FuncxContainerService"
     WEBSERVICE_URL: str = ""
     admin_email: Optional[str] = None
-    # def __init__(self):
-    #     config = dotenv_values(".env")
-    #     pdb.set_trace()
-    #     self.webservice_url = config['WEBSERVICE_URL']
+    REGISTRY_USERNAME: Optional[str] = None
+    REGISTRY_PWD: Optional[str] = None
+    REGISTRY_URL: Optional[str] = None
 
     class Config:
         env_prefix = ''
