@@ -4,15 +4,17 @@ from urllib.parse import urljoin
 
 from fastapi import APIRouter
 from pydantic import BaseModel
-import httpx
+import requests
 
 from .config import Settings
 from .container import Container
-from .models import ContainerSpec, BuildSpec, BuildCompletionSpec
+from .models import BuildSpec, CompletionSpec, ContainerSpec, StatusUpdate
+import pdb
 
 
 log = logging.getLogger("funcx_container_service")
-
+query_container_callback_router = APIRouter()
+build_callback_router = APIRouter()
 
 class container_object_json(BaseModel):
     container_id: str
@@ -22,133 +24,39 @@ class ContainerSpecReceived(BaseModel):
     container_id: str
 
 
-class InvoiceEvent(BaseModel):
-    description: str
-    paid: bool
-
-
-class InvoiceEventReceived(BaseModel):
-    ok: bool
-
-
-query_container_callback_router = APIRouter()
-
-
-build_callback_router = APIRouter()
-
-
-async def register_container_spec(spec: ContainerSpec,
-                                  settings: Settings):
-    """
-    Send container spec to webservice usings requests, get container ID as response
-    """
-    async with httpx.AsyncClient() as client:
-        response = await client.post(f'{settings.WEBSERVICE_URL.strip("/")}/register_container_spec',
-                                     data=spec)
-    container_id = response.json()['UUID']
-
-    return container_id
-
-
-def register_container_spec_requests(spec: ContainerSpec,
-                                     settings: Settings):
-    """
-    Send container spec to webservice usings requests, get container ID as response
-    """
-    import requests
-    response = requests.post(f'{settings.WEBSERVICE_URL.strip("/")}/register_container_spec',
-                             data=spec)
-    container_id = response.json()[0]['UUID']
-    return container_id
-
-
 @build_callback_router.put('<webservice_url>/v2/containers/<container_id>/status')
-def register_build(body: BuildSpec):
+def updating_status(body: StatusUpdate):
     pass
 
 
-async def register_building(container: Container, settings: Settings):
+async def update_status(container: Container):
 
-    build_spec = BuildSpec(container_id=container.container_id,
-                           build_id=container.build_id,
-                           RUN_ID=container.RUN_ID,
-                           build_status=container.build_status)
+    if container.completion_spec:
+        status_dict = dict(list(container.build_spec.dict().items()) + 
+                           list(container.completion_spec.dict().items()) + 
+                           list(container.container_spec.dict().items()))
+    else:
+        status_dict = dict(list(container.build_spec.dict().items()) + 
+                           list(container.container_spec.dict().items()))
 
-    log.info(f'registering build for: {pformat(build_spec)}')
+    log.info(f'updating status for: {pformat(status_dict)}')
 
-    async with httpx.AsyncClient() as client:
-        response = await client.put(urljoin(
-            settings.WEBSERVICE_URL,
-            f"v2/containers/{build_spec.container_id}/status"),
-            headers={'Content-Type': 'application/json'},
-            content=build_spec.json())
 
-        if response.status_code != 200:
-            log.error(f"register build sent back {response}")
+    response = requests.put(urljoin(container.settings.WEBSERVICE_URL,
+                                            f"v2/containers/{container.container_spec.container_id}/status"),
+                            headers={'Content-Type': 'application/json'},
+                            data=status_dict)
+    
+    # async with httpx.AsyncClient() as client:
+    #     response = await client.put(urljoin(container.settings.WEBSERVICE_URL,
+    #                                         f"v2/containers/{container.container_spec.container_id}/status"),
+    #                                 headers={'Content-Type': 'application/json'},
+    #                                 content=status_dict)
+
+    if response.status_code != 200:
+        log.error(f"Updating of container status sent back {response}")
 
     return response
-
-
-@build_callback_router.put('<webservice_url>/v2/containers/<container_id>/status')
-def register_build_start(body: BuildSpec):
-    pass
-
-
-async def register_build_starting(container: Container, settings: Settings):
-
-    build_spec = BuildSpec(container_id=container.container_id,
-                           build_id=container.build_id,
-                           RUN_ID=container.RUN_ID,
-                           build_status=container.build_status)
-
-    log.info(f'registering build start for: {pformat(build_spec)}')
-
-    async with httpx.AsyncClient() as client:
-        response = await client.put(urljoin(
-            settings.WEBSERVICE_URL,
-            f"v2/containers/{build_spec.container_id}/status"),
-            headers={'Content-Type': 'application/json'},
-            content=build_spec.json())
-
-        if response.status_code != 200:
-            log.error(f"""callback_router.register_build_start()
-                          received the following response from the webserver: {response}""")
-
-
-@build_callback_router.put('<webservice_url>/v2/containers/<container_id>/status')
-def register_build_completion(body: BuildCompletionSpec):
-    pass
-
-
-async def register_build_complete(completion_spec: BuildCompletionSpec, settings: Settings):
-
-    async with httpx.AsyncClient() as client:
-        log.info(f'updating webservice with message: {pformat(completion_spec)}')
-        response = await client.put(urljoin(
-            settings.WEBSERVICE_URL,
-            f"v2/containers/{completion_spec.container_id}/status"),
-            headers={'Content-Type': 'application/json'},
-            content=completion_spec.json())
-
-        if response.status_code != 200:
-            log.error(f"""callback_router.register_build_completion()
-                          recieved the following response from the webserver: {response}""")
-
-
-async def register_build_failed(container_spec: ContainerSpec, message, settings: Settings):
-
-    async with httpx.AsyncClient() as client:
-        log.info(f'Build failed! updating webservice with message: {pformat(container_spec)}')
-
-        response = await client.put(urljoin(
-            settings.WEBSERVICE_URL,
-            f"v2/containers/{container_spec.container_id}/status"),
-            headers={'Content-Type': 'application/json'},
-            content=container_spec.json())
-
-        if response.status_code != 200:
-            log.error(f"""callback_router.register_build_failed()
-                          recieved the following response from the webserver: {response}""")
 
 
 async def remove_build(container_id):

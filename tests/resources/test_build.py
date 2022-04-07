@@ -30,7 +30,7 @@ def temp_dir_fixture():
     # TODO: Make sure the proper handling of path info is reapeated in build.docker_simple_build()!!!
     tmp = tempfile.mkdtemp()
     tmp_path = Path(tmp)
-    yield tmp_path
+    yield str(tmp_path)
     # tmp_path.rmdir()
     shutil.rmtree(str(tmp))
 
@@ -123,6 +123,13 @@ def test_env_from_spec_combo(combo_container_spec_fixture):
                                    {'pip': combo_container_spec_fixture.pip}
                                    ]
 
+@pytest.fixture
+def build_response_fixture():
+    build_response = BuildResponse()
+    build_response.container_id = uuid.uuid4()
+    build_response.build_id = uuid.uuid4()
+    build_response.RUN_ID = uuid.uuid4()
+
 
 @pytest.fixture
 def settings_fixture():
@@ -130,6 +137,37 @@ def settings_fixture():
     settings.app_name = 'mocked_settings_app'
     settings.admin_email = 'testing_admin@example.com'
     return settings
+
+
+@pytest.fixture
+def s3_build_request_fixture():
+    request = models.S3BuildRequest
+    container_spec_bucket: str
+    container_spec_object: str
+    payload_bucket: str
+    payload_object: str
+
+
+@pytest.mark.asyncio
+async def test_build_from_request(mocker, 
+                                  request, 
+                                  settings=settings_fixture,
+                                  spec=pip_container_spec_fixture,
+                                  build_response=build_response_fixture):
+
+    mocker.patch('funcx_container_service.build.download_payload_from_url',
+                 return_value=True)
+    
+    mocker.patch('Container.register_building',
+                 return_value=build_response)
+    
+    # mock tasks.add_task() to accept typed inputs(?) and pass
+    mocker.patch('funcx_container_service.BackgroundTasks.add_task',
+                 return_value=True)
+
+    response = build_from_request(spec, settings, RUN_ID, BackgroundTasks)
+
+    assert response.container_id == build_response.container_id
 
 
 @pytest.mark.skip(reason="""test works locally, but remotely returns
@@ -147,20 +185,20 @@ async def test_repo2docker(mocker, pip_container_fixture):
     assert completion_spec
 
 
-@pytest.mark.skip(reason="working out complexities of mocking everything (particularly BackgroundTasks)")
-@pytest.mark.asyncio
-async def test_build_from_request(mocker,
-                                  container=pip_container_fixture,
-                                  settings=settings_fixture):
-
-    # mocker.patch(download_payload_from_url, return_value=True)
-    # mocker.patch(container.register_building, return_value=True)
-
-    # funcx_container_service.build.build_from_request(container.container_spec,
-    #                                                  settings,
-    #                                                  container.RUN_ID,
-    #                                                  tasks: BackgroundTasks)
-    pass
+# @pytest.mark.skip(reason="working out complexities of mocking everything (particularly BackgroundTasks)")
+# @pytest.mark.asyncio
+# async def test_build_from_request(mocker,
+#                                   container=pip_container_fixture,
+#                                   settings=settings_fixture):
+# 
+#     # mocker.patch(download_payload_from_url, return_value=True)
+#     # mocker.patch(container.register_building, return_value=True)
+# 
+#     # funcx_container_service.build.build_from_request(container.container_spec,
+#     #                                                  settings,
+#     #                                                  container.RUN_ID,
+#     #                                                  tasks: BackgroundTasks)
+#     pass
 
 
 @pytest.mark.integration_test
