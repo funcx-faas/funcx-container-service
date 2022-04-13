@@ -58,7 +58,8 @@ async def background_build(container: Container):
                 log.info(f'Build process complete - finished with: {completion_resonse}')
 
             except docker.errors.DockerException as e:
-                err_msg = f'Exception raised trying to instantiate docker client: {e} - is docker running and accessible?'
+                err_msg = f'Exception raised trying to instantiate docker client: {e} - \
+                          is docker running and accessible?'
                 log.error(err_msg)
                 container.err_msg = err_msg
                 await container.update_status(BuildStatus.failed)

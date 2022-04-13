@@ -127,7 +127,8 @@ class Container():
                 log.info(line)
                 push_logs.append(line)
 
-            log.info(f'docker image {self.image_name} sent to {self.settings.REGISTRY_USERNAME}/{self.image_name}:{tag_string}')
+            log.info(f'docker image {self.image_name} sent to \
+                     {self.settings.REGISTRY_USERNAME}/{self.image_name}:{tag_string}')
 
             self.completion_spec.registry_url = self.settings.REGISTRY_URL
             self.completion_spec.registry_repository = self.image_name
