@@ -1,6 +1,5 @@
 import json
 import hashlib
-from datetime import datetime
 from enum import Enum
 from uuid import UUID
 from typing import Optional, List
@@ -62,7 +61,7 @@ class BuildSpec(BaseModel):
     build_status: BuildStatus = None
 
 
-class CompletionSpec(BuildSpec):
+class CompletionSpec(BaseModel):
     repo2docker_return_code: int = 0
     repo2docker_stdout: Optional[str]
     repo2docker_stderr: Optional[str]
@@ -77,6 +76,7 @@ class CompletionSpec(BuildSpec):
 
 
 class StatusUpdate(BaseModel):
+    # only used for defining callback spec for display by callback router - not actually used
     container_type: ContainerRuntime
     container_id: UUID
     payload_url: Optional[HttpUrl]
@@ -97,4 +97,3 @@ class StatusUpdate(BaseModel):
     docker_push_log: str = None
     image_tag: str = None
     image_pull_command: str = None
-

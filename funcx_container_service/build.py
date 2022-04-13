@@ -1,20 +1,16 @@
 import asyncio
-import json
 import logging
+import sys
 import tempfile
-import urllib
-from pprint import pformat
-from uuid import UUID
-import pdb
+import time
 
-import boto3
 import docker
+import httpx
 from docker.errors import ImageNotFound
-from fastapi import BackgroundTasks
 
 from .config import Settings
 from .container import Container, BuildStatus
-from .models import ContainerSpec, CompletionSpec
+from .models import CompletionSpec
 
 
 settings = Settings()
@@ -26,46 +22,11 @@ else:
 
 REPO2DOCKER_CMD = f'{r2d_path} --no-run --image-name {{}} {{}}'
 SINGULARITY_CMD = 'singularity build --force {} docker-daemon://{}:latest'
-DOCKER_BASE_URL = 'unix://var/run/docker.sock'
+
 log = logging.getLogger("funcx_container_service")
 
 
-async def build_image(spec: ContainerSpec,
-                      settings: Settings,
-                      RUN_ID: UUID,
-                      tasks: BackgroundTasks):
-
-    log.info(f'container specification received for run_id {RUN_ID}')
-    log.debug(pformat(spec))
-
-    temp_dir = tempfile.TemporaryDirectory()
-
-    # instantiate container object
-    container = Container(container_spec=spec,
-                          RUN_ID=RUN_ID,
-                          settings=settings,
-                          temp_dir=temp_dir)
-
-    # register a build (build_id + container_id) with database and return the build_id
-    build_response = await container.update_status(BuildStatus.initialized)
-
-    # if build_response.status_code == 200:
-    if build_response:  # testing
-
-        # kickoff the build process in the background
-        log.debug("Starting container build process - adding 'background_build' to tasks...")
-        tasks.add_task(background_build, temp_dir, container)
-
-        # return success start message
-        return {"container_id": str(container.container_id),
-                "build_id": str(container.build_id),
-                "RUN_ID": str(container.RUN_ID)}
-    else:
-        return {"msg": f"webservice returned {build_response} when attempting to register the build"}
-
-
-async def background_build(temp_dir: tempfile.TemporaryDirectory,
-                           container: Container):
+async def background_build(container: Container):
     """
     Build processes passed to a task through route activation.
     Start by checking state of build from the webservice. If status is
@@ -77,49 +38,51 @@ async def background_build(temp_dir: tempfile.TemporaryDirectory,
     :param Container container: The Container object instance
     """
 
-    await container.update_status(BuildStatus.initialized)
+    if await container.download_payload():
 
-    if container.container_spec:
+        await container.update_status(BuildStatus.initialized)
 
-        try:
-            docker_client = docker.APIClient(base_url=DOCKER_BASE_URL)
+        if container.container_spec:
 
-            # build container with docker
-            container.completion_spec = await repo2docker_build(container, temp_dir.name, docker_client.version())
+            try:
+                docker_client = docker.APIClient(base_url=container.DOCKER_BASE_URL)
 
-            # push container to registry
-            container.push_image()
+                # build container with docker
+                await repo2docker_build(container, docker_client.version())
 
-            completion_resonse = await container.update_status(BuildStatus.ready)
+                # push container to registry
+                container.push_image()
 
-            log.info(f'Build process complete - finished with: {completion_resonse}')
+                completion_resonse = await container.update_status(BuildStatus.ready)
 
-        except docker.errors.DockerException as e:
-            err_msg = f'Exception raised trying to instantiate docker client: {e} - is docker running and accessible?'
-            log.error(err_msg)
-            container.err_msg = err_msg
-            await container.update_status(BuildStatus.failed)
-            exit(1)
+                log.info(f'Build process complete - finished with: {completion_resonse}')
 
-        except Exception as e:
-            err_msg = f'Exception raised trying to start building: {e} - is docker running and accessible?'
-            log.error(err_msg)
-            container.err_msg = err_msg
-            await container.update_status(BuildStatus.failed)
-            exit(1)
-            
-    else:
-        raise Exception("Container spec not present!")
+            except docker.errors.DockerException as e:
+                err_msg = f'Exception raised trying to instantiate docker client: {e} - is docker running and accessible?'
+                log.error(err_msg)
+                container.err_msg = err_msg
+                await container.update_status(BuildStatus.failed)
+                sys.exit(1)
+
+            except Exception as e:
+                err_msg = f'Exception raised trying to start building: {e}'
+                log.error(err_msg)
+                container.err_msg = err_msg
+                await container.update_status(BuildStatus.failed)
+                sys.exit(1)
+
+        else:
+            raise Exception("Container spec not present!")
 
 
-async def repo2docker_build(container, temp_dir, docker_client_version):
+async def repo2docker_build(container, docker_client_version):
     """
     Pass the file with the build specs to repo2docker to create the build and
     collect the resulting log information.
     """
-    process = await asyncio.create_subprocess_shell(REPO2DOCKER_CMD.format(docker_name(container.container_id),
-                                                                           temp_dir),
-                                                    env={"DOCKER_HOST": DOCKER_BASE_URL},
+    process = await asyncio.create_subprocess_shell(REPO2DOCKER_CMD.format(container.image_name,
+                                                                           container.temp_dir.name),
+                                                    env={"DOCKER_HOST": container.DOCKER_BASE_URL},
                                                     stdout=asyncio.subprocess.PIPE,
                                                     stderr=asyncio.subprocess.PIPE)
 
@@ -128,38 +91,67 @@ async def repo2docker_build(container, temp_dir, docker_client_version):
 
     await process.wait()
 
-    container.completion_spec = CompletionSpec(container_id=container.container_id,
-                                               build_id=container.build_id,
-                                               RUN_ID=container.RUN_ID,
-                                               build_status=container.build_status,
-                                               docker_client_version=str(docker_client_version))
-
     if process.returncode != 0:
-        err_msg = stderr_msg.decode().splitlines()
-        
-        container.completion_spec.repo2docker_stderr = err_msg
-        container.completion_spec.repo2docker_return_code = process.returncode
-        
+
+        err_msg = ' '.join(stderr_msg.decode().splitlines())
+
+        container.completion_spec = CompletionSpec(repo2docker_return_code=process.returncode,
+                                                   docker_client_version=str(docker_client_version),
+                                                   repo2docker_stderr=err_msg)
+
         logging.error(f'Return code {process.returncode} produced while running \
-            repo2docker for container_id: {container.container_id}')
+            repo2docker for container_id: {container.container_spec.container_id}')
 
         logging.error(f'REPO2DOCKER: {err_msg}')
-
         await container.update_status(BuildStatus.failed)
-
         exit(1)
 
-    else:     
-        out_msg = stderr_msg.decode().splitlines()
+    else:
+        out_msg = ' '.join(stderr_msg.decode().splitlines())
+
+        container.completion_spec = CompletionSpec(repo2docker_return_code=process.returncode,
+                                                   docker_client_version=str(docker_client_version),
+                                                   container_size=docker_size(container),
+                                                   repo2docker_stdout=out_msg)
+
         logging.info(f'REPO2DOCKER: {out_msg}')
-        container.completion_spec.repo2docker_stdout = out_msg
-        container.completion_spec.container_size = docker_size(container.container_id)
 
 
-def docker_size(container_id):
-    docker_client = docker.APIClient(base_url=DOCKER_BASE_URL)
+def docker_size(container):
+    docker_client = docker.APIClient(base_url=container.DOCKER_BASE_URL)
     try:
-        inspect = docker_client.inspect_image(docker_name(container_id))
+        inspect = docker_client.inspect_image(container.image_name)
         return inspect['VirtualSize']
     except ImageNotFound:
         return None
+
+
+# Testing functions
+async def async_sleep():
+    log.info('sleeping...')
+    await asyncio.sleep(10)
+    log.info('done sleeping!')
+
+
+async def time_sleep():
+    log.info('sleeping...')
+    await time.sleep(10)
+    log.info('done sleeping!')
+
+
+async def test_download_thing():
+
+    webby = 'http://www.test.com'
+    tempdir = tempfile.TemporaryDirectory()
+    try:
+        # with urllib.request.urlopen(self.container_spec.payload_url) as f:
+        client = httpx.AsyncClient()
+        async with client.stream("GET", webby) as f:
+            with open(tempdir.name + '/payload', 'wb') as output:
+                async for data in f.aiter_bytes():
+                    output.write(data)
+    except Exception as e:
+        err_msg = f'Exception raised trying to download payload from {webby}: {e}'
+        log.error(err_msg)
+        return
+    log.debug(f'Thing downloaded to {tempdir}')
