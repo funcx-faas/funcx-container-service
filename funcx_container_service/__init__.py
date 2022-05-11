@@ -9,7 +9,7 @@ from .config import LogConfig
 
 from fastapi import (FastAPI, BackgroundTasks, Depends)
 
-from . import callback_router
+from .callback_router import build_callback_router
 from .build import background_build, async_sleep, time_sleep, test_download_thing
 from .container import Container
 from .models import ContainerSpec, BuildStatus
@@ -40,7 +40,7 @@ async def statup_event():
     log.info(f"Username for container registry (from '.env' file): {settings.REGISTRY_USERNAME}")
 
 
-@app.post("/build", callbacks=callback_router.build_callback_router.routes)
+@app.post("/build", callbacks=build_callback_router.routes)
 async def build_container_image(spec: ContainerSpec,
                                 tasks: BackgroundTasks,
                                 settings: Settings = Depends(get_settings)):
@@ -51,7 +51,8 @@ async def build_container_image(spec: ContainerSpec,
     log.info(f'container specification received for run_id {RUN_ID}')
     log.debug(f"container_spec: {pformat(spec)}")
 
-    temp_dir = tempfile.TemporaryDirectory()
+    # temp_dir = tempfile.TemporaryDirectory()
+    temp_dir = tempfile.mkdtemp()
 
     # instantiate container object
     container = Container(container_spec=spec,

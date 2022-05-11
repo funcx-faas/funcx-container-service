@@ -1,9 +1,14 @@
 import logging
 import json
-import httpx
+import os
+import shutil
+import tarfile
+import traceback
 import uuid
+import zipfile
 
 import docker
+import httpx
 
 from . import callback_router
 from .models import BuildStatus, BuildSpec
@@ -30,52 +35,94 @@ class Container():
         self.container_spec = container_spec
         self.completion_spec = None
         self.settings = settings
-        # XXX need to add repo info here?
+        self.build_type = None
         self.image_name = f'funcx_{self.container_spec.container_id}'
 
         if self.container_spec:
-            self.build_spec_to_file(temp_dir.name)
+            self.build_spec_to_file()
 
     async def update_status(self, status: BuildStatus):
         self.build_spec.build_status = status
         update_result = await callback_router.update_status(self)
         return update_result
 
-    def build_spec_to_file(self, tmp_dir):
+    def build_spec_to_file(self):
         """
         Write the build specifications out to a file in the temp directory that can
         be accessed by repo2docker for the build process
         """
         if self.container_spec.apt:
-            with open(tmp_dir + '/apt.txt', 'w') as f:
+            with open(self.temp_dir + '/apt.txt', 'w') as f:
                 f.writelines([x + '\n' for x in self.container_spec.apt])
-        with open(tmp_dir + '/environment.yml', 'w') as f:
+        with open(self.temp_dir + '/environment.yml', 'w') as f:
             json.dump(self.env_from_spec(self.container_spec), f, indent=4)
 
     async def download_payload(self):
 
         if self.container_spec.payload_url:
-            log.debug(f'downloading payload from {self.container_spec.payload_url}')
 
-            temp_payload = self.temp_dir.name + '/payload'
+            payload_path = self.temp_dir + 'payload'
+            log.debug(f'downloading payload from {self.container_spec.payload_url} to {payload_path}')
 
             try:
-                # with urllib.request.urlopen(self.container_spec.payload_url) as f:
                 client = httpx.AsyncClient()
                 async with client.stream("GET", self.container_spec.payload_url) as f:
-                    with open(temp_payload, 'wb') as output:
+                    with open(payload_path, 'wb') as output:
                         async for data in f.aiter_bytes():
                             output.write(data)
 
-            except Exception as e:
-                err_msg = f'Exception raised trying to download payload from {self.container_spec.payload_url}: {e}'
-                log.error(err_msg)
-                self.err_msg = err_msg
-                await self.update_status(BuildStatus.failed)
+            except Exception:
+                err_msg = f"""Exception raised trying to download payload
+                              from {self.container_spec.payload_url}: {traceback.print_exc()}"""
+                self.log_error(err_msg)
                 return False
-            log.debug(f'Payload downloaded to {temp_payload}')
+
+            log.debug(f'Payload downloaded to {payload_path}')
+
+            try:
+
+                # check size vs free space
+                payload_size = os.path.getsize(payload_path)
+                free_space = shutil.disk_usage(self.temp_dir).free
+
+                log.info(f'payload size: {payload_size}')
+                log.info(f'free space: {free_space}')
+
+                if(payload_size * 10 < free_space):
+                    await self.uncompress_payload(payload_path)
+
+            except Exception as e:
+                err_msg = (f'decompressing payload failed: {e}')
+                self.log_error(err_msg)
+                return False
 
         return True
+
+    async def uncompress_payload(self, payload_path):
+        if tarfile.is_tarfile(payload_path):
+            log.debug('tarfile detected...')
+            try:
+                with tarfile.TarFile(payload_path, 'rb') as tar_obj:
+                    log.debug(f'untarring {payload_path}')
+                    tar_obj.extractall(self.temp_dir)
+            except Exception as e:
+                err_msg = f'untar failed: {e}'
+                self.log_error(err_msg)
+        elif zipfile.is_zipfile(payload_path):
+            log.debug('zipfile detected...')
+            try:
+                with zipfile.ZipFile(payload_path, 'r') as zip_obj:
+                    log.debug(f'unzipping {payload_path}')
+                    zip_obj.extractall(self.temp_dir)
+            except Exception as e:
+                err_msg = f'unzip failed: {e}'
+                self.log_error(err_msg)
+        else:
+            err_msg = f"""file obtained from {self.container_spec.payload_url} is not
+                          acceptable archive format (tar or zip) - exiting"""
+
+            self.log_error(err_msg)
+            exit(1)
 
     def env_from_spec(self, spec):
         """
@@ -159,3 +206,15 @@ class Container():
 
         self.build_status = BuildStatus.building
         return True
+
+    async def log_error(self, err_msg):
+        log.error(err_msg)
+        try:
+            shutil.rmtree(self.temp_dir)
+        except Exception:
+            deletion_message = f'Exception during deletion of tempdir at {self.temp_dir}!'
+            log.error(deletion_message)
+            err_msg += '\n' + deletion_message
+        self.err_msg = err_msg
+        await self.update_status(BuildStatus.failed)
+        return False

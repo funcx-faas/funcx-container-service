@@ -1,5 +1,6 @@
 flake8
+httpx
 pytest
 pytest-mock
 pytest-asyncio
-httpx
+pytest-httpx

@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import shutil
 import sys
 import tempfile
 import time
@@ -10,7 +11,7 @@ from docker.errors import ImageNotFound
 
 from .config import Settings
 from .container import Container, BuildStatus
-from .models import CompletionSpec
+from .models import CompletionSpec, BuildType
 
 
 settings = Settings()
@@ -38,42 +39,49 @@ async def background_build(container: Container):
     :param Container container: The Container object instance
     """
 
-    if await container.download_payload():
+    if container.container_spec:
+
+        if 'github.com' in container.container_spec.payload_url:
+            log.info('Processing logic source as a github repository...')
+            container.build_type = BuildType.github
+
+        else:
+            container.build_type = BuildType.payload
+            await container.download_payload()
 
         await container.update_status(BuildStatus.initialized)
 
-        if container.container_spec:
+        try:
+            docker_client = docker.APIClient(base_url=container.DOCKER_BASE_URL)
 
-            try:
-                docker_client = docker.APIClient(base_url=container.DOCKER_BASE_URL)
+            # build container with docker
+            await repo2docker_build(container, docker_client.version())
 
-                # build container with docker
-                await repo2docker_build(container, docker_client.version())
+            # push container to registry
+            container.push_image()
 
-                # push container to registry
-                container.push_image()
+            completion_resonse = await container.update_status(BuildStatus.ready)
 
-                completion_resonse = await container.update_status(BuildStatus.ready)
+            log.info(f'Build process complete - finished with: {completion_resonse}')
 
-                log.info(f'Build process complete - finished with: {completion_resonse}')
+            # remove tempdir on successful completion
+            shutil.rmtree(container.temp_dir)
 
-            except docker.errors.DockerException as e:
-                err_msg = f'Exception raised trying to instantiate docker client: {e} - \
-                          is docker running and accessible?'
-                log.error(err_msg)
-                container.err_msg = err_msg
-                await container.update_status(BuildStatus.failed)
-                sys.exit(1)
+        except docker.errors.DockerException as e:
+            err_msg = f'Exception raised trying to instantiate docker client: {e} - \
+                      is docker running and accessible?'
+            await container.log_error(err_msg)
+            sys.exit(1)
 
-            except Exception as e:
-                err_msg = f'Exception raised trying to start building: {e}'
-                log.error(err_msg)
-                container.err_msg = err_msg
-                await container.update_status(BuildStatus.failed)
-                sys.exit(1)
+        except Exception as e:
+            err_msg = f'Exception raised trying to start building: {e}'
+            await container.log_error(err_msg)
+            sys.exit(1)
 
-        else:
-            raise Exception("Container spec not present!")
+    else:
+        err_msg = "Container spec not present!"
+        await container.log_error(err_msg)
+        sys.exit(1)
 
 
 async def repo2docker_build(container, docker_client_version):
@@ -81,8 +89,16 @@ async def repo2docker_build(container, docker_client_version):
     Pass the file with the build specs to repo2docker to create the build and
     collect the resulting log information.
     """
+
+    if container.build_type == BuildType.github:
+        log.info('building container image from github repo')
+        source = container.container_spec.payload_url
+    else:
+        log.info('building container image by downloading source')
+        source = container.temp_dir
+
     process = await asyncio.create_subprocess_shell(REPO2DOCKER_CMD.format(container.image_name,
-                                                                           container.temp_dir.name),
+                                                                           source),
                                                     env={"DOCKER_HOST": container.DOCKER_BASE_URL},
                                                     stdout=asyncio.subprocess.PIPE,
                                                     stderr=asyncio.subprocess.PIPE)
@@ -94,17 +110,17 @@ async def repo2docker_build(container, docker_client_version):
 
     if process.returncode != 0:
 
-        err_msg = ' '.join(stderr_msg.decode().splitlines())
+        docker_err_msg = ' '.join(stderr_msg.decode().splitlines())
 
         container.completion_spec = CompletionSpec(repo2docker_return_code=process.returncode,
                                                    docker_client_version=str(docker_client_version),
-                                                   repo2docker_stderr=err_msg)
+                                                   repo2docker_stderr=docker_err_msg)
 
-        logging.error(f'Return code {process.returncode} produced while running \
-            repo2docker for container_id: {container.container_spec.container_id}')
+        err_msg = f'Return code {process.returncode} produced while running \
+                    repo2docker for container_id: {container.container_spec.container_id}\n' \
+                  f'REPO2DOCKER returned: {docker_err_msg}'
 
-        logging.error(f'REPO2DOCKER: {err_msg}')
-        await container.update_status(BuildStatus.failed)
+        await container.log_error(err_msg)
         exit(1)
 
     else:

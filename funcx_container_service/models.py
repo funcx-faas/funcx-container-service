@@ -14,6 +14,14 @@ class ContainerRuntime(str, Enum):
     singularity = 'Singularity'
 
 
+class BuildType(str, Enum):
+    """
+    Specification to indicate if the image is built from a supplied payload or from a github repo
+    """
+    github = 'github'
+    payload = 'payload'
+
+
 class ContainerSpec(BaseModel):
     """Software specification for a container.
 
