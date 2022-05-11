@@ -1,9 +1,6 @@
-import httpx
 import os
-from pathlib import Path
 from pytest_httpx import HTTPXMock, IteratorStream
 import pytest
-import shutil
 import tempfile
 import uuid
 
@@ -41,28 +38,29 @@ async def test_download(settings_fixture, container_spec_fixture, httpx_mock: HT
     print(f'cwd: {os. getcwd()}')
     httpx_mock.add_response(stream=IteratorStream(open("tests/resources/data.txt.zip", "rb")))
     with tempfile.TemporaryDirectory() as temp_dir:
-        
-        c = Container(container_spec_fixture, 
+
+        c = Container(container_spec_fixture,
                       uuid.uuid4(),
                       settings_fixture,
                       temp_dir,
                       DOCKER_BASE_URL)
+
         download_result = await c.download_payload()
-        
-        assert download_result == True
+
+        assert download_result
 
 
 @pytest.mark.asyncio
 async def test_download_2(settings_fixture, container_spec_fixture, httpx_mock: HTTPXMock):
     httpx_mock.add_response(stream=IteratorStream(open("tests/resources/data.txt.zip", "rb")))
     with tempfile.TemporaryDirectory() as temp_dir:
-        
-        c = Container(container_spec_fixture, 
+
+        c = Container(container_spec_fixture,
                       uuid.uuid4(),
                       settings_fixture,
                       temp_dir,
                       DOCKER_BASE_URL)
 
-        download_result = await c.download_payload()
-        
+        await c.download_payload()
+
         assert os.path.isfile(temp_dir + 'payload')
