@@ -10,7 +10,7 @@ from .config import LogConfig
 from fastapi import (FastAPI, BackgroundTasks, Depends)
 
 from .callback_router import build_callback_router
-from .build import background_build, async_sleep, time_sleep, test_download_thing
+from .build import background_build
 from .container import Container
 from .models import ContainerSpec, BuildStatus
 from .config import Settings
@@ -63,7 +63,7 @@ async def build_container_image(spec: ContainerSpec,
 
     tasks.add_task(background_build, container)
 
-    build_response = await container.update_status(BuildStatus.queued)
+    build_response = container.update_status(BuildStatus.queued)
 
     # if build_response.status_code == 200:
     if build_response.status_code:  # testing
@@ -83,34 +83,3 @@ async def read_main():
 @app.get("/version")
 async def get_version():
     return {"version": container_service_version}
-
-
-# Testing
-@app.get("/test_download")
-async def test_download():
-    await test_download_thing()
-    return {'msg': 'thing downloaded!'}
-
-
-@app.get("/task_test_download")
-async def task_test_download(tasks: BackgroundTasks):
-    tasks.add_task(test_download_thing)
-    return {'msg': 'thing downloaded!'}
-
-
-@app.get("/async_sleep")
-async def sleep():
-    await async_sleep()
-    return {'msg': 'sleep time is over!'}
-
-
-@app.get("/task_time_sleep")
-async def task_sleep(tasks: BackgroundTasks):
-    tasks.add_task(async_sleep)
-    return {'msg': 'sleep time is over!'}
-
-
-@app.get("/task_async_sleep")
-async def task_async_sleep(tasks: BackgroundTasks):
-    tasks.add_task(time_sleep)
-    return {'msg': 'sleep time is over!'}

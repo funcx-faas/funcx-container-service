@@ -28,7 +28,7 @@ def updating_status(body: StatusUpdate):
     pass
 
 
-async def update_status(container: Container):
+def update_status(container: Container):
 
     if container.completion_spec:
         status_dict = dict(list(container.build_spec.dict().items())
@@ -48,17 +48,11 @@ async def update_status(container: Container):
                             headers={'Content-Type': 'application/json'},
                             data=status_dict)
 
-    # async with httpx.AsyncClient() as client:
-    #     response = await client.put(urljoin(container.settings.WEBSERVICE_URL,
-    #                                         f"v2/containers/{container.container_spec.container_id}/status"),
-    #                                 headers={'Content-Type': 'application/json'},
-    #                                 content=status_dict)
-
     if response.status_code != 200:
         log.error(f"Updating of container status returned {response}")
 
     return response
 
 
-async def remove_build(container_id):
+def remove_build(container_id):
     pass

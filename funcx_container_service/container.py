@@ -1,6 +1,7 @@
 import logging
 import json
 import os
+import requests
 import shutil
 import tarfile
 import traceback
@@ -8,7 +9,6 @@ import uuid
 import zipfile
 
 import docker
-import httpx
 
 from . import callback_router
 from .models import BuildStatus, BuildSpec
@@ -41,9 +41,9 @@ class Container():
         if self.container_spec:
             self.build_spec_to_file()
 
-    async def update_status(self, status: BuildStatus):
+    def update_status(self, status: BuildStatus):
         self.build_spec.build_status = status
-        update_result = await callback_router.update_status(self)
+        update_result = callback_router.update_status(self)
         return update_result
 
     def build_spec_to_file(self):
@@ -57,19 +57,21 @@ class Container():
         with open(self.temp_dir + '/environment.yml', 'w') as f:
             json.dump(self.env_from_spec(self.container_spec), f, indent=4)
 
-    async def download_payload(self):
+    def download_payload(self):
 
         if self.container_spec.payload_url:
 
-            payload_path = self.temp_dir + 'payload'
+            payload_path = self.temp_dir + '/payload'
             log.debug(f'downloading payload from {self.container_spec.payload_url} to {payload_path}')
 
             try:
-                client = httpx.AsyncClient()
-                async with client.stream("GET", self.container_spec.payload_url) as f:
-                    with open(payload_path, 'wb') as output:
-                        async for data in f.aiter_bytes():
-                            output.write(data)
+                response = requests.get(self.container_spec.payload_url, stream = True)
+
+                payload_file = open(payload_path, "wb")
+                for chunk in response.iter_content(chunk_size=1024):
+                    payload_file.write(chunk)
+
+                payload_file.close()
 
             except Exception:
                 err_msg = f"""Exception raised trying to download payload
@@ -89,7 +91,7 @@ class Container():
                 log.info(f'free space: {free_space}')
 
                 if(payload_size * 10 < free_space):
-                    await self.uncompress_payload(payload_path)
+                    self.uncompress_payload(payload_path)
 
             except Exception as e:
                 err_msg = (f'decompressing payload failed: {e}')
@@ -98,7 +100,7 @@ class Container():
 
         return True
 
-    async def uncompress_payload(self, payload_path):
+    def uncompress_payload(self, payload_path):
         if tarfile.is_tarfile(payload_path):
             log.debug('tarfile detected...')
             try:
@@ -207,7 +209,7 @@ class Container():
         self.build_status = BuildStatus.building
         return True
 
-    async def log_error(self, err_msg):
+    def log_error(self, err_msg):
         log.error(err_msg)
         try:
             shutil.rmtree(self.temp_dir)
@@ -216,5 +218,5 @@ class Container():
             log.error(deletion_message)
             err_msg += '\n' + deletion_message
         self.err_msg = err_msg
-        await self.update_status(BuildStatus.failed)
+        self.update_status(BuildStatus.failed)
         return False
