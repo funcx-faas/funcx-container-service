@@ -2,11 +2,8 @@ import logging
 import shutil
 import subprocess
 import sys
-import tempfile
-import time
 
 import docker
-import httpx
 from docker.errors import ImageNotFound
 
 from .config import Settings
@@ -56,7 +53,7 @@ def background_build(container: Container):
 
             # build container with docker
             repo2docker_build(container, docker_client.version())
-            
+
             # push container to registry
             container.push_image()
 
@@ -96,11 +93,11 @@ def repo2docker_build(container, docker_client_version):
     else:
         log.info('building container image by downloading source')
         source = container.temp_dir
-    
+
     process = subprocess.Popen(REPO2DOCKER_CMD.format(container.image_name, source).split(' '),
-                              env={"DOCKER_HOST": container.DOCKER_BASE_URL},
-                              stdout=subprocess.PIPE,
-                              stderr=subprocess.PIPE)
+                               env={"DOCKER_HOST": container.DOCKER_BASE_URL},
+                               stdout=subprocess.PIPE,
+                               stderr=subprocess.PIPE)
 
     # after lots of investigation, it looks like repo2docker only communicates on stderr :/
     stdout_msg, stderr_msg = process.communicate()
