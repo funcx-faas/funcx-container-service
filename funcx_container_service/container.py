@@ -65,7 +65,7 @@ class Container():
             log.debug(f'downloading payload from {self.container_spec.payload_url} to {payload_path}')
 
             try:
-                response = requests.get(self.container_spec.payload_url, stream = True)
+                response = requests.get(self.container_spec.payload_url, stream=True)
 
                 payload_file = open(payload_path, "wb")
                 for chunk in response.iter_content(chunk_size=1024):
@@ -104,7 +104,7 @@ class Container():
         if tarfile.is_tarfile(payload_path):
             log.debug('tarfile detected...')
             try:
-                with tarfile.TarFile(payload_path, 'rb') as tar_obj:
+                with tarfile.TarFile(payload_path, 'r') as tar_obj:
                     log.debug(f'untarring {payload_path}')
                     tar_obj.extractall(self.temp_dir)
             except Exception as e:
