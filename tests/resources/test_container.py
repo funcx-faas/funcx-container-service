@@ -78,7 +78,7 @@ def test_uncompress_tar(container_spec_fixture, settings_fixture):
 def test_uncompress_fail(container_spec_fixture, settings_fixture):
     with pytest.raises(SystemExit) as e:
         with tempfile.TemporaryDirectory() as temp_dir:
-            shutil.copyfile("tests/resources/test_container.py", f'{temp_dir}/test_container.py')
+            shutil.copyfile("tests/resources/test.txt", f'{temp_dir}/test_container.py')
             run_id = str(uuid.uuid4())
             c = Container(container_spec_fixture,
                           run_id,
