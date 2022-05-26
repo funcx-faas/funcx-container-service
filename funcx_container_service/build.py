@@ -137,4 +137,3 @@ def docker_size(container):
         return inspect['VirtualSize']
     except ImageNotFound:
         return None
-
