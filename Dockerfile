@@ -16,4 +16,5 @@ COPY ./funcx_container_service/ ./funcx_container_service/
 USER http
 EXPOSE 8000
 ENV PYTHONUNBUFFERED=1
+
 CMD PYTHONPATH=./funcx_container_service python main.py

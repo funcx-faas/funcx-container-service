@@ -46,7 +46,7 @@ def background_build(container: Container):
             container.build_type = BuildType.payload
             container.download_payload()
 
-        container.update_status(BuildStatus.initialized)
+        container.update_status(BuildStatus.building)
 
         try:
             docker_client = docker.APIClient(base_url=container.DOCKER_BASE_URL)
@@ -57,7 +57,7 @@ def background_build(container: Container):
             # push container to registry
             container.push_image()
 
-            completion_resonse = container.update_status(BuildStatus.ready)
+            completion_resonse = container.update_status(BuildStatus.complete)
 
             log.info(f'Build process complete - finished with: {completion_resonse}')
 
@@ -137,3 +137,4 @@ def docker_size(container):
         return inspect['VirtualSize']
     except ImageNotFound:
         return None
+

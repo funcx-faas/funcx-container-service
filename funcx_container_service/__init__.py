@@ -63,13 +63,14 @@ async def build_container_image(spec: ContainerSpec,
 
     tasks.add_task(background_build, container)
 
-    build_response = container.update_status(BuildStatus.queued)
+    build_response = container.update_status(BuildStatus.pending)
 
     # if build_response.status_code == 200:
     if build_response.status_code:  # testing
         return {"container_id": str(container.container_spec.container_id),
                 "build_id": str(container.build_spec.build_id),
                 "RUN_ID": str(container.build_spec.RUN_ID)}
+
     else:
         return {"msg": f"webservice returned {build_response} when attempting to register the build"}
 
