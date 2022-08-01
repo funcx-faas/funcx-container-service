@@ -37,6 +37,7 @@ class Container():
         self.settings = settings
         self.build_type = None
         self.image_name = f'funcx_{self.container_spec.container_id}'
+        self.err_msg = None
 
         if self.container_spec:
             self.build_spec_to_file()
@@ -60,7 +61,6 @@ class Container():
     def download_payload(self):
 
         if self.container_spec.payload_url:
-
             payload_path = self.temp_dir + '/payload'
             log.debug(f'downloading payload from {self.container_spec.payload_url} to {payload_path}')
 
@@ -95,7 +95,7 @@ class Container():
 
             except Exception as e:
                 err_msg = (f'decompressing payload failed: {e}')
-                self.log_error(err_msg)
+                await self.log_error(err_msg)
                 return False
 
         return True
@@ -109,7 +109,7 @@ class Container():
                     tar_obj.extractall(self.temp_dir)
             except Exception as e:
                 err_msg = f'untar failed: {e}'
-                self.log_error(err_msg)
+                raise Exception(err_msg)
         elif zipfile.is_zipfile(payload_path):
             log.debug('zipfile detected...')
             try:
@@ -118,12 +118,13 @@ class Container():
                     zip_obj.extractall(self.temp_dir)
             except Exception as e:
                 err_msg = f'unzip failed: {e}'
-                self.log_error(err_msg)
+                raise Exception(err_msg)
+
         else:
             err_msg = f"""file obtained from {self.container_spec.payload_url} is not
                           acceptable archive format (tar or zip) - exiting"""
 
-            self.log_error(err_msg)
+            raise Exception(err_msg)
 
     def env_from_spec(self, spec):
         """
