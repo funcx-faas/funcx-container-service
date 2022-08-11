@@ -20,6 +20,7 @@ class BuildType(str, Enum):
     """
     github = 'github'
     payload = 'payload'
+    container = 'container'
 
 
 class ContainerSpec(BaseModel):

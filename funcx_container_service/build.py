@@ -36,14 +36,17 @@ def background_build(container: Container):
     """
 
     if container.container_spec:
+        container.update_status(BuildStatus.building)
 
-        if 'github.com' in container.container_spec.payload_url:
-            log.info('Processing logic source as a github repository...')
-            container.build_type = BuildType.github
-
+        if hasattr(container, 'container.container_spec.payload_url'):
+            if 'github.com' in container.container_spec.payload_url:
+                log.info('Processing logic source as a github repository...')
+                container.build_type = BuildType.github
+            else:
+                container.build_type = BuildType.payload
+                container.download_payload()
         else:
-            container.build_type = BuildType.payload
-            container.download_payload()
+            container.build_type = BuildType.container
 
         container.update_status(BuildStatus.building)
 

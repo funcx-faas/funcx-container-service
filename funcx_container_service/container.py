@@ -90,12 +90,12 @@ class Container():
                 log.info(f'payload size: {payload_size}')
                 log.info(f'free space: {free_space}')
 
-                if (payload_size * 10 < free_space):
+                if payload_size * 10 < free_space:
                     self.uncompress_payload(payload_path)
 
             except Exception as e:
                 err_msg = (f'decompressing payload failed: {e}')
-                await self.log_error(err_msg)
+                self.log_error(err_msg)
                 return False
 
         return True
