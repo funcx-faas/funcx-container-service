@@ -17,19 +17,6 @@ class Settings(BaseSettings):
         env_file_encoding = 'utf-8'
 
 
-class DefaultConfig(object):
-    DEBUG = False
-    TESTING = False
-
-
-class TestConfig(DefaultConfig):
-    TESTING = True
-
-
-class DebugConfig(DefaultConfig):
-    DEBUG = True
-
-
 class LogConfig(BaseModel):
     """Logging configuration to be set for the server"""
 
