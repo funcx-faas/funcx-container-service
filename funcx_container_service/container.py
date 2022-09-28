@@ -90,7 +90,7 @@ class Container():
                 log.info(f'payload size: {payload_size}')
                 log.info(f'free space: {free_space}')
 
-                if(payload_size * 10 < free_space):
+                if (payload_size * 10 < free_space):
                     self.uncompress_payload(payload_path)
 
             except Exception as e:
