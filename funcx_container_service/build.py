@@ -1,7 +1,6 @@
 import logging
 import shutil
 import subprocess
-import sys
 
 import docker
 from docker.errors import ImageNotFound
@@ -68,17 +67,14 @@ def background_build(container: Container):
             err_msg = f'Exception raised trying to instantiate docker client: {e} - \
                       is docker running and accessible?'
             container.log_error(err_msg)
-            sys.exit(1)
 
         except Exception as e:
             err_msg = f'Exception raised trying to start building: {e}'
             container.log_error(err_msg)
-            sys.exit(1)
 
     else:
         err_msg = "Container spec not present!"
         container.log_error(err_msg)
-        sys.exit(1)
 
 
 def repo2docker_build(container, docker_client_version):
@@ -117,7 +113,6 @@ def repo2docker_build(container, docker_client_version):
                   f'REPO2DOCKER returned: {docker_err_msg}'
 
         container.log_error(err_msg)
-        exit(1)
 
     else:
         out_msg = ' '.join(stderr_msg.decode().splitlines())

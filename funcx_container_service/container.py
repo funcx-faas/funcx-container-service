@@ -124,7 +124,6 @@ class Container():
                           acceptable archive format (tar or zip) - exiting"""
 
             self.log_error(err_msg)
-            exit(1)
 
     def env_from_spec(self, spec):
         """
