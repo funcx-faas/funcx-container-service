@@ -44,7 +44,7 @@ def update_status(container: Container):
     log.info(f'updating status for: {pformat(status_dict)}')
 
     response = requests.put(urljoin(container.settings.WEBSERVICE_URL,
-                                    f"v2/containers/{container.container_spec.container_id}/status"),
+                                    f"v2/internal/containers/{container.container_spec.container_id}/status"),
                             headers={'Content-Type': 'application/json'},
                             data=status_dict)
 
