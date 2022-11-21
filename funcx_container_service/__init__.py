@@ -32,12 +32,13 @@ def get_settings():
 
 
 @app.on_event("startup")
-async def statup_event():
+async def startup_event():
     settings = get_settings()
     log.info("Starting up funcx container service...")
     log.info(f"URL of webservice (from '.env' file): {settings.WEBSERVICE_URL}")
     log.info(f"URL of container registry (from '.env' file): {settings.REGISTRY_URL}")
     log.info(f"Username for container registry (from '.env' file): {settings.REGISTRY_USERNAME}")
+    log.info(f"Build timeout (from '.env' file): {settings.BUILD_TIMEOUT}")
 
 
 @app.post("/build", callbacks=build_callback_router.routes)

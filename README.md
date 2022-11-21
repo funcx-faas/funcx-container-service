@@ -16,10 +16,17 @@ WEBSERVICE_URL=<url for the webserivce that issues requests to the container ser
 REGISTRY_USERNAME=<registry username>
 REGISTRY_PWD=<registry password>
 REGISTRY_URL=<url to registry>
+BUILD_TIMEOUT=<repo2docker max time (seconds)>
 ```
 `WEBSERVICE_URL` is the webservice for the funcx service that registers the user submission for a container build via the sdk
 
 The `REGISTRY` variables define the access information for the registry to which the resulting image built by the container service should be stored
+
+The `BUILD_TIMEOUT` is an integer value representing the amount of time (in seconds) 
+that the `repo2docker` process has to successfully complete before it is terminated.
+Note that this does not include the time required to push the image up to the specified
+repository (which could take a few minutes). Defaults to 30 minutes if no value is specified
+in the '.env' file.
 
 
 ## Running the service

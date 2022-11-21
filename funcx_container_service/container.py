@@ -37,6 +37,7 @@ class Container():
         self.settings = settings
         self.build_type = None
         self.image_name = f'funcx_{self.container_spec.container_id}'
+        self.build_timeout = settings.BUILD_TIMEOUT
 
         if self.container_spec:
             self.build_spec_to_file()
@@ -149,7 +150,8 @@ class Container():
 
     def push_image(self):
 
-        docker_client = docker.APIClient(base_url=self.DOCKER_BASE_URL)
+        docker_client = docker.APIClient(base_url=self.DOCKER_BASE_URL,
+                                         timeout=30)
 
         d_response = docker_client.login(username=self.settings.REGISTRY_USERNAME,
                                          password=self.settings.REGISTRY_PWD,

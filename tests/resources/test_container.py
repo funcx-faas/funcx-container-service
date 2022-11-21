@@ -41,7 +41,8 @@ def test_container_creation(container_spec_fixture, settings_fixture):
                       run_id,
                       settings_fixture,
                       temp_dir,
-                      DOCKER_BASE_URL)
+                      DOCKER_BASE_URL,
+                      30*60)
 
         assert c.image_name == f'funcx_{container_spec_fixture.container_id}'
 
@@ -54,7 +55,8 @@ def test_uncompress_zip(container_spec_fixture, settings_fixture):
                       run_id,
                       settings_fixture,
                       temp_dir,
-                      DOCKER_BASE_URL)
+                      DOCKER_BASE_URL,
+                      30*60)
 
         c.uncompress_payload(f'{temp_dir}/data.txt.zip')
         assert os.path.exists(f'{temp_dir}/test.txt')
@@ -69,7 +71,8 @@ def test_uncompress_tar(container_spec_fixture, settings_fixture):
                       run_id,
                       settings_fixture,
                       temp_dir,
-                      DOCKER_BASE_URL)
+                      DOCKER_BASE_URL,
+                      30*60)
 
         c.uncompress_payload(f'{temp_dir}/test.tar.gz')
         assert os.path.exists(f'{temp_dir}/test.txt')
@@ -85,7 +88,8 @@ def test_uncompress_fail(container_spec_fixture, settings_fixture):
                           run_id,
                           settings_fixture,
                           temp_dir,
-                          DOCKER_BASE_URL)
+                          DOCKER_BASE_URL,
+                          30*60)
 
             c.uncompress_payload(f'{temp_dir}/test.txt')
 
@@ -106,7 +110,8 @@ def test_mocking_download(mock_requests_get, settings_fixture, container_spec_fi
                       uuid.uuid4(),
                       settings_fixture,
                       temp_dir,
-                      DOCKER_BASE_URL)
+                      DOCKER_BASE_URL,
+                      30*60)
 
         download_result = c.download_payload()
 
@@ -123,7 +128,8 @@ async def test_download_2(settings_fixture, container_spec_fixture, httpx_mock: 
                       uuid.uuid4(),
                       settings_fixture,
                       temp_dir,
-                      DOCKER_BASE_URL)
+                      DOCKER_BASE_URL,
+                      30*60)
 
         await c.download_payload()
 

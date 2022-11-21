@@ -10,6 +10,7 @@ class Settings(BaseSettings):
     REGISTRY_PWD: Optional[str] = None
     REGISTRY_URL: Optional[str] = None
     REPO2DOCKER_PATH: Optional[str] = None
+    BUILD_TIMEOUT: Optional[int] = 60 * 30
 
     class Config:
         env_prefix = ''
@@ -21,7 +22,7 @@ class LogConfig(BaseModel):
     """Logging configuration to be set for the server"""
 
     LOGGER_NAME: str = "funcx_container_service"
-    LOG_FORMAT: str = "%(levelprefix)s | %(asctime)s | %(message)s"
+    LOG_FORMAT: str = "%(levelprefix)s | %(asctime)s | %(filename)s.%(funcName)s (line %(lineno)d): %(message)s"
     LOG_LEVEL: str = "DEBUG"
 
     # Logging config
