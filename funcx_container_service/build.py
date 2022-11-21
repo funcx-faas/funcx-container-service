@@ -97,7 +97,8 @@ def repo2docker_build(container, docker_client_version):
                                    stderr=subprocess.PIPE,
                                    start_new_session=True)
 
-        log.info(f'Starting build subprocess with PID {os.getpgid(process.pid)} with timeout of {container.build_timeout} seconds')
+        log.info(f'Starting build subprocess with PID {os.getpgid(process.pid)} \
+                 with timeout of {container.build_timeout} seconds')
 
         # after lots of investigation, it looks like repo2docker only communicates on stderr :/
         stdout_msg, stderr_msg = process.communicate(timeout=container.build_timeout)
