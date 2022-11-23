@@ -39,6 +39,7 @@ class Container():
         self.image_name = f'funcx_{self.container_spec.container_id}'
         self.err_msg = None
 
+        log.info(str(self.container_spec))
         if self.container_spec:
             self.build_spec_to_file()
 

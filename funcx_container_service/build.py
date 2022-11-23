@@ -9,7 +9,6 @@ from .config import Settings
 from .container import Container, BuildStatus
 from .models import CompletionSpec, BuildType
 
-
 settings = Settings()
 
 if settings.REPO2DOCKER_PATH:
@@ -59,9 +58,9 @@ def background_build(container: Container):
             # push container to registry
             container.push_image()
 
-            completion_resonse = container.update_status(BuildStatus.complete)
+            completion_response = container.update_status(BuildStatus.ready)
 
-            log.info(f'Build process complete - finished with: {completion_resonse}')
+            log.info(f'Build process complete - finished with: {completion_response}')
 
             # remove tempdir on successful completion
             shutil.rmtree(container.temp_dir)
@@ -93,18 +92,16 @@ def repo2docker_build(container, docker_client_version):
         log.info('building container image by downloading source')
         source = container.temp_dir
 
-    process = subprocess.Popen(REPO2DOCKER_CMD.format(container.image_name, source).split(' '),
+    process = subprocess.Popen(REPO2DOCKER_CMD.format(container.image_name, source),
                                env={"DOCKER_HOST": container.DOCKER_BASE_URL},
                                stdout=subprocess.PIPE,
-                               stderr=subprocess.PIPE)
+                               stderr=subprocess.PIPE,
+                               shell=True)
 
-    # after lots of investigation, it looks like repo2docker only communicates on stderr :/
+    # after lots of investigation, it looks like repo2docker only communicates on stderr
     stdout_msg, stderr_msg = process.communicate()
 
-    # await process.wait()
-
     if process.returncode != 0:
-
         docker_err_msg = ' '.join(stderr_msg.decode().splitlines())
 
         container.completion_spec = CompletionSpec(repo2docker_return_code=process.returncode,
