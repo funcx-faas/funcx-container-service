@@ -110,6 +110,7 @@ class Container():
                     tar_obj.extractall(self.temp_dir)
             except Exception as e:
                 err_msg = f'untar failed: {e}'
+                self.log_error(err_msg=err_msg)
                 raise Exception(err_msg)
         elif zipfile.is_zipfile(payload_path):
             log.debug('zipfile detected...')
@@ -119,12 +120,13 @@ class Container():
                     zip_obj.extractall(self.temp_dir)
             except Exception as e:
                 err_msg = f'unzip failed: {e}'
+                self.log_error(err_msg=err_msg)
                 raise Exception(err_msg)
 
         else:
             err_msg = f"""file obtained from {self.container_spec.payload_url} is not
                           acceptable archive format (tar or zip) - exiting"""
-
+            self.log_error(err_msg=err_msg)
             raise Exception(err_msg)
 
     def env_from_spec(self, spec):
