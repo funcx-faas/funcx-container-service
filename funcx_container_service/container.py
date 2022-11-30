@@ -38,7 +38,9 @@ class Container():
         self.build_type = None
         self.image_name = f'funcx_{self.container_spec.container_id}'
         self.build_timeout = settings.BUILD_TIMEOUT
+        self.err_msg = None
 
+        log.info(str(self.container_spec))
         if self.container_spec:
             self.build_spec_to_file()
 
@@ -61,7 +63,6 @@ class Container():
     def download_payload(self):
 
         if self.container_spec.payload_url:
-
             payload_path = self.temp_dir + '/payload'
             log.debug(f'downloading payload from {self.container_spec.payload_url} to {payload_path}')
 
@@ -91,7 +92,7 @@ class Container():
                 log.info(f'payload size: {payload_size}')
                 log.info(f'free space: {free_space}')
 
-                if (payload_size * 10 < free_space):
+                if payload_size * 10 < free_space:
                     self.uncompress_payload(payload_path)
 
             except Exception as e:
@@ -110,7 +111,8 @@ class Container():
                     tar_obj.extractall(self.temp_dir)
             except Exception as e:
                 err_msg = f'untar failed: {e}'
-                self.log_error(err_msg)
+                self.log_error(err_msg=err_msg)
+                raise Exception(err_msg)
         elif zipfile.is_zipfile(payload_path):
             log.debug('zipfile detected...')
             try:
@@ -119,12 +121,14 @@ class Container():
                     zip_obj.extractall(self.temp_dir)
             except Exception as e:
                 err_msg = f'unzip failed: {e}'
-                self.log_error(err_msg)
+                self.log_error(err_msg=err_msg)
+                raise Exception(err_msg)
+
         else:
             err_msg = f"""file obtained from {self.container_spec.payload_url} is not
                           acceptable archive format (tar or zip) - exiting"""
-
-            self.log_error(err_msg)
+            self.log_error(err_msg=err_msg)
+            raise Exception(err_msg)
 
     def env_from_spec(self, spec):
         """

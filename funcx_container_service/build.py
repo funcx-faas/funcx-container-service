@@ -12,7 +12,6 @@ from .config import Settings
 from .container import Container, BuildStatus
 from .models import CompletionSpec, BuildType
 
-
 settings = Settings()
 
 if settings.REPO2DOCKER_PATH:
@@ -39,24 +38,41 @@ def background_build(container: Container):
     """
 
     if container.container_spec:
+        container.update_status(BuildStatus.building)
 
-        try:
-
+        if hasattr(container, 'container.container_spec.payload_url'):
             if 'github.com' in container.container_spec.payload_url:
                 log.info('Processing logic source as a github repository...')
                 container.build_type = BuildType.github
-
             else:
                 container.build_type = BuildType.payload
                 container.download_payload()
+        else:
+            container.build_type = BuildType.container
 
-            container.update_status(BuildStatus.building)
+        container.update_status(BuildStatus.building)
+
+        try:
 
             docker_client = docker.APIClient(base_url=container.DOCKER_BASE_URL)
 
-            # build container with docker
-
             repo2docker_build(container, docker_client.version())
+
+            # push container to registry
+            container_push_start_time = time.time()
+            container.push_image()
+            container_push_end_time = time.time()
+
+            container_push_time = container_push_end_time - container_push_start_time
+            log.info(f'Time to push container to repository: {container_push_time}s.')
+            container.completion_spec.container_push_time = container_push_time
+
+            completion_response = container.update_status(BuildStatus.ready)
+
+            log.info(f'Build process complete - finished with: {completion_response}')
+
+            # remove tempdir on successful completion
+            shutil.rmtree(container.temp_dir)
 
         except docker.errors.DockerException as e:
             err_msg = f'Exception raised trying to instantiate docker client: {e} - \
@@ -100,7 +116,7 @@ def repo2docker_build(container, docker_client_version):
         log.info(f'Starting build subprocess with PID {os.getpgid(process.pid)} \
                  with timeout of {container.build_timeout} seconds')
 
-        # after lots of investigation, it looks like repo2docker only communicates on stderr :/
+        # after lots of investigation, it looks like repo2docker only communicates on stderr
         stdout_msg, stderr_msg = process.communicate(timeout=container.build_timeout)
 
         # await process.wait()
@@ -135,15 +151,6 @@ def repo2docker_build(container, docker_client_version):
             log.info(f'Time to build container on server: {container_build_time}s.')
 
             log.info(f'REPO2DOCKER: {out_msg}')
-
-            # push container to registry
-            container_push_start_time = time.time()
-            container.push_image()
-            container_push_end_time = time.time()
-
-            container_push_time = container_push_end_time - container_push_start_time
-            log.info(f'Time to push container to repository: {container_push_time}s.')
-            container.completion_spec.container_push_time = container_push_time
 
             # remove tempdir on successful completion
             shutil.rmtree(container.temp_dir)

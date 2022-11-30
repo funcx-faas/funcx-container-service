@@ -1,6 +1,5 @@
 from uuid import uuid4
 from functools import lru_cache
-from pprint import pformat
 import tempfile
 
 from logging.config import dictConfig
@@ -50,9 +49,7 @@ async def build_container_image(spec: ContainerSpec,
     Returns an ID that can be used to query container status.
     """
     log.info(f'container specification received for run_id {RUN_ID}')
-    log.debug(f"container_spec: {pformat(spec)}")
 
-    # temp_dir = tempfile.TemporaryDirectory()
     temp_dir = tempfile.mkdtemp()
 
     # instantiate container object
@@ -64,7 +61,7 @@ async def build_container_image(spec: ContainerSpec,
 
     tasks.add_task(background_build, container)
 
-    build_response = container.update_status(BuildStatus.pending)
+    build_response = container.update_status(BuildStatus.queued)
 
     # if build_response.status_code == 200:
     if build_response.status_code:  # testing

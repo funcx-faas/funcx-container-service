@@ -20,6 +20,7 @@ class BuildType(str, Enum):
     """
     github = 'github'
     payload = 'payload'
+    container = 'container'
 
 
 class ContainerSpec(BaseModel):
@@ -56,9 +57,9 @@ class ContainerSpec(BaseModel):
 
 
 class BuildStatus(str, Enum):
-    pending = 'pending'
+    queued = 'queued'
     building = 'building'
-    complete = 'complete'
+    ready = 'ready'
     failed = 'failed'
 
 
