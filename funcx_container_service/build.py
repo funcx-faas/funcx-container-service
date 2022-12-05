@@ -104,14 +104,15 @@ def repo2docker_build(container, docker_client_version):
         log.info('building container image by downloading source')
         source = container.temp_dir
 
-    cmd = REPO2DOCKER_CMD.format(container.image_name, source).split(' ')
+    cmd = REPO2DOCKER_CMD.format(container.image_name, source)
 
     try:
         process = subprocess.Popen(cmd,
                                    env={"DOCKER_HOST": container.DOCKER_BASE_URL},
                                    stdout=subprocess.PIPE,
                                    stderr=subprocess.PIPE,
-                                   start_new_session=True)
+                                   start_new_session=True,
+                                   shell=True)
 
         log.info(f'Starting build subprocess with PID {os.getpgid(process.pid)} \
                  with timeout of {container.build_timeout} seconds')
