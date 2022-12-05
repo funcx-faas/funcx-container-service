@@ -33,7 +33,6 @@ def background_build(container: Container):
     the container using repo2docker, push image to specified registry,
     and update webservice upon successful completion
 
-    :param temp_dir: Temporary directory generated for this request
     :param Container container: The Container object instance
     """
 
@@ -75,11 +74,13 @@ def background_build(container: Container):
             shutil.rmtree(container.temp_dir)
 
         except docker.errors.DockerException as e:
+            log.exception(e)
             err_msg = f'Exception raised trying to instantiate docker client: {e} - \
                       is docker running and accessible?'
             container.log_error(err_msg)
 
         except Exception as e:
+            log.exception(e)
             err_msg = f'Exception raised trying to start building: {e}'
             container.log_error(err_msg)
 
@@ -156,7 +157,7 @@ def repo2docker_build(container, docker_client_version):
             # remove tempdir on successful completion
             shutil.rmtree(container.temp_dir)
 
-            container.update_status(BuildStatus.complete)
+            container.update_status(BuildStatus.ready)
 
             log.info('Build process complete!')
 
