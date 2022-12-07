@@ -60,6 +60,20 @@ def test_uncompress_zip(container_spec_fixture, settings_fixture):
         assert os.path.exists(f'{temp_dir}/test.txt')
 
 
+def test_delete_temp_dir(container_spec_fixture, settings_fixture):
+    with tempfile.TemporaryDirectory() as temp_dir:
+        shutil.copyfile("tests/resources/data.txt.zip", f'{temp_dir}/data.txt.zip')
+        run_id = str(uuid.uuid4())
+        c = Container(container_spec_fixture,
+                      run_id,
+                      settings_fixture,
+                      temp_dir,
+                      DOCKER_BASE_URL)
+
+        c.delete_temp_dir()
+        assert os.path.exists(f'{temp_dir}')==False
+
+
 @pytest.mark.skip(reason="having issues distinguishing tar vs gz - getting 'untar failed: truncated header' error")
 def test_uncompress_tar(container_spec_fixture, settings_fixture):
     with tempfile.TemporaryDirectory() as temp_dir:

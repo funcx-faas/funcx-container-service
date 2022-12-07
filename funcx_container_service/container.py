@@ -214,14 +214,16 @@ class Container():
         self.build_status = BuildStatus.building
         return True
 
-    def log_error(self, err_msg):
-        log.error(err_msg)
+    def delete_temp_dir(self):
         try:
             shutil.rmtree(self.temp_dir)
+            log.info(f'{self.temp_dir} removed.')
         except Exception:
-            deletion_message = f'Exception during deletion of tempdir at {self.temp_dir}!'
-            log.error(deletion_message)
-            err_msg += '\n' + deletion_message
+            deletion_message = f'Exception during deletion of temp_dir at {self.temp_dir}!'
+            self.log_error(deletion_message)
+
+    def log_error(self, err_msg):
+        log.error(err_msg)
         self.err_msg = err_msg
         self.update_status(BuildStatus.failed)
         return False

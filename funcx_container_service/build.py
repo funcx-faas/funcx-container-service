@@ -1,6 +1,5 @@
 import logging
 import os
-import shutil
 import signal
 import subprocess
 import time
@@ -35,58 +34,61 @@ def background_build(container: Container):
 
     :param Container container: The Container object instance
     """
+    try:
+        if container.container_spec:
+            container.update_status(BuildStatus.building)
 
-    if container.container_spec:
-        container.update_status(BuildStatus.building)
-
-        if hasattr(container, 'container.container_spec.payload_url'):
-            if 'github.com' in container.container_spec.payload_url:
-                log.info('Processing logic source as a github repository...')
-                container.build_type = BuildType.github
+            if hasattr(container, 'container.container_spec.payload_url'):
+                if 'github.com' in container.container_spec.payload_url:
+                    log.info('Processing logic source as a github repository...')
+                    container.build_type = BuildType.github
+                else:
+                    container.build_type = BuildType.payload
+                    container.download_payload()
             else:
-                container.build_type = BuildType.payload
-                container.download_payload()
+                container.build_type = BuildType.container
+
+            container.update_status(BuildStatus.building)
+
+            try:
+
+                docker_client = docker.APIClient(base_url=container.DOCKER_BASE_URL)
+
+                repo2docker_build(container, docker_client.version())
+
+                # push container to registry
+                container_push_start_time = time.time()
+                container.push_image()
+                container_push_end_time = time.time()
+
+                container_push_time = container_push_end_time - container_push_start_time
+                log.info(f'Time to push container to repository: {container_push_time}s.')
+                container.completion_spec.container_push_time = container_push_time
+
+                completion_response = container.update_status(BuildStatus.ready)
+
+                log.info(f'Build process complete - finished with: {completion_response}')
+
+            except docker.errors.DockerException as e:
+                log.exception(e)
+                err_msg = f'Exception raised trying to instantiate docker client: {e} - \
+                          is docker running and accessible?'
+                container.log_error(err_msg)
+
+            except Exception as e:
+                log.exception(e)
+                err_msg = f'Exception raised trying to start building: {e}'
+                container.log_error(err_msg)
+
         else:
-            container.build_type = BuildType.container
-
-        container.update_status(BuildStatus.building)
-
-        try:
-
-            docker_client = docker.APIClient(base_url=container.DOCKER_BASE_URL)
-
-            repo2docker_build(container, docker_client.version())
-
-            # push container to registry
-            container_push_start_time = time.time()
-            container.push_image()
-            container_push_end_time = time.time()
-
-            container_push_time = container_push_end_time - container_push_start_time
-            log.info(f'Time to push container to repository: {container_push_time}s.')
-            container.completion_spec.container_push_time = container_push_time
-
-            completion_response = container.update_status(BuildStatus.ready)
-
-            log.info(f'Build process complete - finished with: {completion_response}')
-
-            # remove tempdir on successful completion
-            shutil.rmtree(container.temp_dir)
-
-        except docker.errors.DockerException as e:
-            log.exception(e)
-            err_msg = f'Exception raised trying to instantiate docker client: {e} - \
-                      is docker running and accessible?'
+            err_msg = "Container spec not present!"
             container.log_error(err_msg)
 
-        except Exception as e:
-            log.exception(e)
-            err_msg = f'Exception raised trying to start building: {e}'
-            container.log_error(err_msg)
+    except Exception as e:
+        log.error(f'exception raised during background_build() {e}')
 
-    else:
-        err_msg = "Container spec not present!"
-        container.log_error(err_msg)
+    finally:
+        container.delete_temp_dir()
 
 
 def repo2docker_build(container, docker_client_version):
@@ -153,9 +155,6 @@ def repo2docker_build(container, docker_client_version):
             log.info(f'Time to build container on server: {container_build_time}s.')
 
             log.info(f'REPO2DOCKER: {out_msg}')
-
-            # remove tempdir on successful completion
-            shutil.rmtree(container.temp_dir)
 
             container.update_status(BuildStatus.ready)
 
