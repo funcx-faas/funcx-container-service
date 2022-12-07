@@ -71,7 +71,7 @@ def test_delete_temp_dir(container_spec_fixture, settings_fixture):
                       DOCKER_BASE_URL)
 
         c.delete_temp_dir()
-        assert os.path.exists(f'{temp_dir}')==False
+        assert not os.path.exists(f'{temp_dir}')
 
 
 @pytest.mark.skip(reason="having issues distinguishing tar vs gz - getting 'untar failed: truncated header' error")
