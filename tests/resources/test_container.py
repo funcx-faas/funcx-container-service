@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 from pytest_httpx import HTTPXMock, IteratorStream
 import pytest
 import tempfile
@@ -72,7 +73,7 @@ def test_delete_temp_dir(container_spec_fixture, settings_fixture):
         print(f'does tempdir {temp_dir} exist?: {os.path.exists(temp_dir)}')
 
         c.delete_temp_dir()
-        assert not os.path.exists(temp_dir)
+        assert not Path(temp_dir).exists()
 
 
 @pytest.mark.skip(reason="having issues distinguishing tar vs gz - getting 'untar failed: truncated header' error")
