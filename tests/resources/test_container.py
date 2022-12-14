@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 from pytest_httpx import HTTPXMock, IteratorStream
 import pytest
 import tempfile
@@ -58,6 +59,24 @@ def test_uncompress_zip(container_spec_fixture, settings_fixture):
 
         c.uncompress_payload(f'{temp_dir}/data.txt.zip')
         assert os.path.exists(f'{temp_dir}/test.txt')
+
+
+def test_delete_temp_dir(container_spec_fixture, settings_fixture):
+    with tempfile.TemporaryDirectory() as test_dir:
+        temp_dir = f"{test_dir}/build_dir"
+        os.mkdir(temp_dir)
+
+        shutil.copyfile("tests/resources/data.txt.zip", f'{temp_dir}/data.txt.zip')
+        run_id = str(uuid.uuid4())
+        c = Container(container_spec_fixture,
+                      run_id,
+                      settings_fixture,
+                      temp_dir,
+                      DOCKER_BASE_URL)
+        print(f'does tempdir {temp_dir} exist?: {os.path.exists(temp_dir)}')
+
+        c.delete_temp_dir()
+        assert not Path(temp_dir).exists()
 
 
 @pytest.mark.skip(reason="having issues distinguishing tar vs gz - getting 'untar failed: truncated header' error")

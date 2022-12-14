@@ -81,6 +81,8 @@ class CompletionSpec(BaseModel):
     docker_push_log: str = None
     image_tag: str = None
     image_pull_command: str = None
+    container_build_time: int = None
+    container_push_time: int = None
 
 
 class StatusUpdate(BaseModel):
