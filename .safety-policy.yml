@@ -1,0 +1,8 @@
+security:
+    ignore-cvss-severity-below: 0
+    ignore-cvss-unknown-severity: False
+    ignore-vulnerabilities:
+        51668: # https://pyup.io/v/51668/f17/
+            reason: SQLAlchemy 2.0.* is currently in beta
+            expires: '2023-12-12'
+    continue-on-vulnerability-error: False
