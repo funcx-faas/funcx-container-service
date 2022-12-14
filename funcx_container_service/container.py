@@ -154,8 +154,7 @@ class Container():
 
     def push_image(self):
 
-        docker_client = docker.APIClient(base_url=self.DOCKER_BASE_URL,
-                                         timeout=30)
+        docker_client = docker.APIClient(base_url=self.DOCKER_BASE_URL)
 
         d_response = docker_client.login(username=self.settings.REGISTRY_USERNAME,
                                          password=self.settings.REGISTRY_PWD,
