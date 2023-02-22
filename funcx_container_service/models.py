@@ -10,8 +10,8 @@ class ContainerRuntime(str, Enum):
     """
     Specification of the runtime to be used to execute the container.
     """
-    docker = 'Docker'
-    singularity = 'Singularity'
+    docker = 'docker'
+    singularity = 'singularity'
 
 
 class BuildType(str, Enum):
