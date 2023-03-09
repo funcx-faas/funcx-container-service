@@ -60,6 +60,7 @@ class BuildStatus(str, Enum):
     queued = 'queued'
     building = 'building'
     ready = 'ready'
+    pushed = 'pushed'
     failed = 'failed'
 
 
@@ -81,8 +82,8 @@ class CompletionSpec(BaseModel):
     docker_push_log: str = None
     image_tag: str = None
     image_pull_command: str = None
-    container_build_time: int = None
-    container_push_time: int = None
+    container_build_time: float = None
+    container_push_time: float = None
 
 
 class StatusUpdate(BaseModel):

@@ -48,8 +48,6 @@ def background_build(container: Container):
             else:
                 container.build_type = BuildType.container
 
-            container.update_status(BuildStatus.building)
-
             try:
 
                 docker_client = docker.APIClient(base_url=container.DOCKER_BASE_URL)
@@ -65,7 +63,7 @@ def background_build(container: Container):
                 log.info(f'Time to push container to repository: {container_push_time}s.')
                 container.completion_spec.container_push_time = container_push_time
 
-                completion_response = container.update_status(BuildStatus.ready)
+                completion_response = container.update_status(BuildStatus.pushed)
 
                 log.info(f'Build process complete - finished with: {completion_response}')
 
