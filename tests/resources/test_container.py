@@ -34,6 +34,7 @@ def container_spec_fixture():
                               )
     return mock_spec
 
+
 @pytest.fixture
 def container_spec_test_url_fixture():
     mock_spec = ContainerSpec(container_type="Docker",
@@ -86,7 +87,6 @@ def test_update_build_type_github(container_spec_fixture, settings_fixture):
         assert c.build_type == BuildType.github
 
 
-
 def test_update_build_type_payload(container_spec_test_url_fixture, settings_fixture, mocker):
     with tempfile.TemporaryDirectory() as temp_dir:
         shutil.copyfile("tests/resources/data.txt.zip", f'{temp_dir}/data.txt.zip')
@@ -96,7 +96,7 @@ def test_update_build_type_payload(container_spec_test_url_fixture, settings_fix
                       settings_fixture,
                       temp_dir,
                       DOCKER_BASE_URL)
-        m = mocker.patch("funcx_container_service.container.Container.download_payload", return_value=True)
+        mocker.patch("funcx_container_service.container.Container.download_payload", return_value=True)
         c.update_build_type()
         assert c.build_type == BuildType.payload
 
