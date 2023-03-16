@@ -73,6 +73,20 @@ def test_uncompress_zip(container_spec_fixture, settings_fixture):
         assert os.path.exists(f'{temp_dir}/test.txt')
 
 
+def test_uncompress_non_zip(container_spec_fixture, settings_fixture, mocker):
+    with tempfile.TemporaryDirectory() as temp_dir:
+        shutil.copyfile("tests/resources/test.txt", f'{temp_dir}/test.txt')
+        run_id = str(uuid.uuid4())
+        c = Container(container_spec_fixture,
+                      run_id,
+                      settings_fixture,
+                      temp_dir,
+                      DOCKER_BASE_URL)
+        with pytest.raises(Exception) as e_info:
+            mocker.patch("funcx_container_service.container.Container.log_error")
+            c.uncompress_payload(f'{temp_dir}/data.txt.zip')
+
+
 def test_update_build_type_github(container_spec_fixture, settings_fixture):
     with tempfile.TemporaryDirectory() as temp_dir:
         shutil.copyfile("tests/resources/data.txt.zip", f'{temp_dir}/data.txt.zip')

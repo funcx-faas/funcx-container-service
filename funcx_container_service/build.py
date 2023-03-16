@@ -37,23 +37,13 @@ def background_build(container: Container):
     try:
         if container.container_spec:
             container.update_status(BuildStatus.building)
-
-            if hasattr(container, 'container.container_spec.payload_url'):
-                if 'github.com' in container.container_spec.payload_url:
-                    log.info('Processing logic source as a github repository...')
-                    container.build_type = BuildType.github
-                else:
-                    container.build_type = BuildType.payload
-                    container.download_payload()
-            else:
-                container.build_type = BuildType.container
+            container.update_build_type()
 
             try:
 
                 docker_client = docker.APIClient(base_url=container.DOCKER_BASE_URL)
 
                 repo2docker_build(container, docker_client.version())
-
                 # push container to registry
                 container_push_start_time = time.time()
                 container.push_image()
