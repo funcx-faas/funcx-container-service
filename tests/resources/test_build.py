@@ -78,7 +78,7 @@ def test_repo2docker_build_fail(container_spec_fixture, settings_fixture, fp, mo
         assert c.build_spec.build_status == BuildStatus.failed
 
 
-def test_background_build(container_spec_fixture, settings_fixture, mocker):
+def test_background_build(container_spec_fixture, settings_fixture, mocker, fp):
     with tempfile.TemporaryDirectory() as temp_dir:
         run_id = str(uuid.uuid4())
         c = Container(container_spec_fixture,
@@ -88,10 +88,11 @@ def test_background_build(container_spec_fixture, settings_fixture, mocker):
                       DOCKER_BASE_URL)
         c.build_type = BuildType.container
 
-        # mocker.patch("funcx_container_service.build.repo2docker_build")
+        fp.register([fp.any()], returncode=0)
         mocker.patch('funcx_container_service.build.docker_size', return_value=1234)
         mocker.patch("funcx_container_service.container.Container.push_image")
         mocker.patch('funcx_container_service.callback_router.update_status')
+        mocker.patch('os.getpgid', returnvalue=1)
 
         background_build(c)
 
