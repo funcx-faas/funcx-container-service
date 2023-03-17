@@ -147,21 +147,20 @@ def test_background_build_docker_exception(container_spec_fixture, settings_fixt
 
     with tempfile.TemporaryDirectory() as temp_dir:
         run_id = str(uuid.uuid4())
-        c = Container(container_spec_fixture,
-                      run_id,
-                      settings_fixture,
-                      temp_dir,
-                      DOCKER_BASE_URL)
-        c.build_type = BuildType.container
+        container = Container(container_spec_fixture,
+                              run_id,
+                              settings_fixture,
+                              temp_dir,
+                              DOCKER_BASE_URL)
+        container.build_type = BuildType.container
 
         mocker.patch('docker.APIClient', side_effect=docker.errors.DockerException)
         mocker.patch('funcx_container_service.build.docker_size', return_value=1234)
         mocker.patch("funcx_container_service.container.Container.push_image")
         mocker.patch('funcx_container_service.callback_router.update_status')
+        background_build(container)
 
-        # assert c.build_spec.build_status == BuildStatus.failed
-        with pytest.raises(docker.errors.DockerException):
-            background_build(c)
+        assert container.build_spec.build_status == BuildStatus.failed
 
 
 def test_background_build_timeout_exception(container_spec_fixture, settings_fixture, mocker, fp):

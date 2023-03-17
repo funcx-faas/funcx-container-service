@@ -63,10 +63,10 @@ def background_build(container: Container):
 
     except docker.errors.DockerException as e:
         log.exception(e)
+
         err_msg = f'Exception raised trying to instantiate docker client: {sys.exc_info()} - \
                   is docker running and accessible?'
-        log.error(err_msg)
-        raise e
+        container.log_error(err_msg)
 
     except Exception as e:
         log.exception(e)
@@ -147,7 +147,6 @@ def repo2docker_build(container, docker_client_version):
             log.info('Build process complete!')
 
     except subprocess.TimeoutExpired as e:
-        log.exception(e)
         os.killpg(os.getpgid(process.pid), signal.SIGTERM)
         raise e
 
