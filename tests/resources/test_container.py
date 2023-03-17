@@ -82,7 +82,7 @@ def test_uncompress_non_zip(container_spec_fixture, settings_fixture, mocker):
                       settings_fixture,
                       temp_dir,
                       DOCKER_BASE_URL)
-        with pytest.raises(Exception) as e_info:
+        with pytest.raises(Exception):
             mocker.patch("funcx_container_service.container.Container.log_error")
             c.uncompress_payload(f'{temp_dir}/data.txt.zip')
 

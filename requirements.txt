@@ -2,8 +2,6 @@ jupyter-repo2docker
 fastapi[uvicorn]
 python-multipart
 python-dotenv
-testfixtures
-pytest-subprocess
 uvicorn
 SQLAlchemy
 docker
