@@ -224,4 +224,3 @@ class Container():
         log.error(err_msg)
         self.err_msg = err_msg
         self.update_status(BuildStatus.failed)
-        return False
