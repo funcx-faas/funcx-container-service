@@ -2,6 +2,7 @@ import pytest
 import subprocess
 import tempfile
 import uuid
+import os
 
 import docker
 
@@ -60,11 +61,13 @@ def test_repo2docker_build_success(container_spec_fixture, settings_fixture, fp,
 
 def test_repo2docker_build_fail(container_spec_fixture, settings_fixture, fp, mocker):
     with tempfile.TemporaryDirectory() as temp_dir:
+        deleteme = os.path.join(temp_dir, "deleteme")
+        os.mkdir(deleteme)
         run_id = str(uuid.uuid4())
         c = Container(container_spec_fixture,
                       run_id,
                       settings_fixture,
-                      temp_dir,
+                      deleteme,
                       DOCKER_BASE_URL)
         c.build_type = BuildType.container
 
@@ -80,11 +83,14 @@ def test_repo2docker_build_fail(container_spec_fixture, settings_fixture, fp, mo
 
 def test_background_build(container_spec_fixture, settings_fixture, mocker, fp):
     with tempfile.TemporaryDirectory() as temp_dir:
+        deleteme = os.path.join(temp_dir, "deleteme")
+        os.mkdir(deleteme)
+
         run_id = str(uuid.uuid4())
         c = Container(container_spec_fixture,
                       run_id,
                       settings_fixture,
-                      temp_dir,
+                      deleteme,
                       DOCKER_BASE_URL)
         c.build_type = BuildType.container
 
@@ -146,11 +152,14 @@ def test_repo2docker_docker_exception(container_spec_fixture, settings_fixture, 
 def test_background_build_docker_exception(container_spec_fixture, settings_fixture, mocker, fp):
 
     with tempfile.TemporaryDirectory() as temp_dir:
+        deleteme = os.path.join(temp_dir, "deleteme")
+        os.mkdir(deleteme)
+
         run_id = str(uuid.uuid4())
         container = Container(container_spec_fixture,
                               run_id,
                               settings_fixture,
-                              temp_dir,
+                              deleteme,
                               DOCKER_BASE_URL)
         container.build_type = BuildType.container
 
@@ -166,11 +175,14 @@ def test_background_build_docker_exception(container_spec_fixture, settings_fixt
 def test_background_build_timeout_exception(container_spec_fixture, settings_fixture, mocker, fp):
 
     with tempfile.TemporaryDirectory() as temp_dir:
+        deleteme = os.path.join(temp_dir, "deleteme")
+        os.mkdir(deleteme)
+
         run_id = str(uuid.uuid4())
         container = Container(container_spec_fixture,
                               run_id,
                               settings_fixture,
-                              temp_dir,
+                              deleteme,
                               DOCKER_BASE_URL)
         container.build_type = BuildType.container
 

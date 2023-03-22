@@ -61,26 +61,32 @@ def test_container_creation(container_spec_fixture, settings_fixture):
 
 def test_uncompress_zip(container_spec_fixture, settings_fixture):
     with tempfile.TemporaryDirectory() as temp_dir:
-        shutil.copyfile("tests/resources/data.txt.zip", f'{temp_dir}/data.txt.zip')
+        deleteme = os.path.join(temp_dir, "deleteme")
+        os.mkdir(deleteme)
+
+        shutil.copyfile("tests/resources/data.txt.zip", f'{deleteme}/data.txt.zip')
         run_id = str(uuid.uuid4())
         c = Container(container_spec_fixture,
                       run_id,
                       settings_fixture,
-                      temp_dir,
+                      deleteme,
                       DOCKER_BASE_URL)
 
-        c.uncompress_payload(f'{temp_dir}/data.txt.zip')
-        assert os.path.exists(f'{temp_dir}/test.txt')
+        c.uncompress_payload(f'{deleteme}/data.txt.zip')
+        assert os.path.exists(f'{deleteme}/test.txt')
 
 
 def test_uncompress_non_zip(container_spec_fixture, settings_fixture, mocker):
     with tempfile.TemporaryDirectory() as temp_dir:
+        deleteme = os.path.join(temp_dir, "deleteme")
+        os.mkdir(deleteme)
+
         shutil.copyfile("tests/resources/test.txt", f'{temp_dir}/test.txt')
         run_id = str(uuid.uuid4())
         c = Container(container_spec_fixture,
                       run_id,
                       settings_fixture,
-                      temp_dir,
+                      deleteme,
                       DOCKER_BASE_URL)
         with pytest.raises(Exception):
             mocker.patch("funcx_container_service.container.Container.log_error")
@@ -89,12 +95,15 @@ def test_uncompress_non_zip(container_spec_fixture, settings_fixture, mocker):
 
 def test_update_build_type_github(container_spec_fixture, settings_fixture):
     with tempfile.TemporaryDirectory() as temp_dir:
+        deleteme = os.path.join(temp_dir, "deleteme")
+        os.mkdir(deleteme)
+
         shutil.copyfile("tests/resources/data.txt.zip", f'{temp_dir}/data.txt.zip')
         run_id = str(uuid.uuid4())
         c = Container(container_spec_fixture,
                       run_id,
                       settings_fixture,
-                      temp_dir,
+                      deleteme,
                       DOCKER_BASE_URL)
 
         c.update_build_type()
