@@ -30,7 +30,7 @@ def settings_fixture():
 
 @pytest.fixture
 def container_spec_fixture():
-    mock_spec = ContainerSpec(container_type="Docker",
+    mock_spec = ContainerSpec(container_type="docker",
                               container_id=uuid.uuid4(),
                               payload_url='http://www.github.com',
                               conda=['pandas'],
