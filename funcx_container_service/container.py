@@ -3,7 +3,6 @@ import json
 import os
 import requests
 import shutil
-import tarfile
 import traceback
 import uuid
 import zipfile
@@ -11,7 +10,7 @@ import zipfile
 import docker
 
 from . import callback_router
-from .models import BuildStatus, BuildSpec
+from .models import BuildStatus, BuildSpec, BuildType
 
 log = logging.getLogger("funcx_container_service")
 
@@ -43,6 +42,17 @@ class Container():
         log.info(str(self.container_spec))
         if self.container_spec:
             self.build_spec_to_file()
+
+    def update_build_type(self):
+        if self.container_spec.payload_url is not None:
+            if 'github.com' in self.container_spec.payload_url:
+                log.info('Processing logic source as a github repository...')
+                self.build_type = BuildType.github
+            else:
+                self.build_type = BuildType.payload
+                self.download_payload()
+        else:
+            self.build_type = BuildType.container
 
     def update_status(self, status: BuildStatus):
         self.build_spec.build_status = status
@@ -103,17 +113,7 @@ class Container():
         return True
 
     def uncompress_payload(self, payload_path):
-        if tarfile.is_tarfile(payload_path):
-            log.debug('tarfile detected...')
-            try:
-                with tarfile.TarFile(payload_path, 'r') as tar_obj:
-                    log.debug(f'untarring {payload_path}')
-                    tar_obj.extractall(self.temp_dir)
-            except Exception as e:
-                err_msg = f'untar failed: {e}'
-                self.log_error(err_msg=err_msg)
-                raise Exception(err_msg)
-        elif zipfile.is_zipfile(payload_path):
+        if zipfile.is_zipfile(payload_path):
             log.debug('zipfile detected...')
             try:
                 with zipfile.ZipFile(payload_path, 'r') as zip_obj:
@@ -123,7 +123,6 @@ class Container():
                 err_msg = f'unzip failed: {e}'
                 self.log_error(err_msg=err_msg)
                 raise Exception(err_msg)
-
         else:
             err_msg = f"""file obtained from {self.container_spec.payload_url} is not
                           acceptable archive format (tar or zip) - exiting"""
@@ -225,4 +224,3 @@ class Container():
         log.error(err_msg)
         self.err_msg = err_msg
         self.update_status(BuildStatus.failed)
-        return False

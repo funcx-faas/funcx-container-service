@@ -2,6 +2,7 @@ import logging
 import os
 import signal
 import subprocess
+import sys
 import time
 
 import docker
@@ -36,56 +37,41 @@ def background_build(container: Container):
     """
     try:
         if container.container_spec:
-            container.update_status(BuildStatus.building)
-
-            if hasattr(container, 'container.container_spec.payload_url'):
-                if 'github.com' in container.container_spec.payload_url:
-                    log.info('Processing logic source as a github repository...')
-                    container.build_type = BuildType.github
-                else:
-                    container.build_type = BuildType.payload
-                    container.download_payload()
-            else:
-                container.build_type = BuildType.container
 
             container.update_status(BuildStatus.building)
+            container.update_build_type()
 
-            try:
+            docker_client = docker.APIClient(base_url=container.DOCKER_BASE_URL)
 
-                docker_client = docker.APIClient(base_url=container.DOCKER_BASE_URL)
+            repo2docker_build(container, docker_client.version())
+            # push container to registry
+            container_push_start_time = time.time()
+            container.push_image()
+            container_push_end_time = time.time()
 
-                repo2docker_build(container, docker_client.version())
+            container_push_time = container_push_end_time - container_push_start_time
+            log.info(f'Time to push container to repository: {container_push_time}s.')
+            container.completion_spec.container_push_time = container_push_time
 
-                # push container to registry
-                container_push_start_time = time.time()
-                container.push_image()
-                container_push_end_time = time.time()
+            completion_response = container.update_status(BuildStatus.pushed)
 
-                container_push_time = container_push_end_time - container_push_start_time
-                log.info(f'Time to push container to repository: {container_push_time}s.')
-                container.completion_spec.container_push_time = container_push_time
-
-                completion_response = container.update_status(BuildStatus.ready)
-
-                log.info(f'Build process complete - finished with: {completion_response}')
-
-            except docker.errors.DockerException as e:
-                log.exception(e)
-                err_msg = f'Exception raised trying to instantiate docker client: {e} - \
-                          is docker running and accessible?'
-                container.log_error(err_msg)
-
-            except Exception as e:
-                log.exception(e)
-                err_msg = f'Exception raised trying to start building: {e}'
-                container.log_error(err_msg)
+            log.info(f'Build process complete - finished with: {completion_response}')
 
         else:
             err_msg = "Container spec not present!"
-            container.log_error(err_msg)
+            raise Exception(err_msg)
+
+    except docker.errors.DockerException as e:
+        log.exception(e)
+
+        err_msg = f'Exception raised trying to instantiate docker client: {sys.exc_info()} - \
+                  is docker running and accessible?'
+        container.log_error(err_msg)
 
     except Exception as e:
-        log.error(f'exception raised during background_build() {e}')
+        log.exception(e)
+        err_msg = f'Exception during background build: {sys.exc_info()}'
+        container.log_error(err_msg)
 
     finally:
         container.delete_temp_dir()
@@ -160,14 +146,9 @@ def repo2docker_build(container, docker_client_version):
 
             log.info('Build process complete!')
 
-    except subprocess.TimeoutExpired:
-
-        err_msg = f'Timeout for {cmd} ({container.build_timeout}s) expired while running \
-                    repo2docker for container_id: {container.container_spec.container_id}\n' \
-
+    except subprocess.TimeoutExpired as e:
         os.killpg(os.getpgid(process.pid), signal.SIGTERM)
-
-        container.log_error(err_msg)
+        raise e
 
 
 def docker_size(container):
