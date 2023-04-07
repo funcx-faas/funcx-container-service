@@ -60,7 +60,6 @@ class BuildStatus(str, Enum):
     queued = 'queued'
     building = 'building'
     ready = 'ready'
-    pushed = 'pushed'
     failed = 'failed'
 
 
