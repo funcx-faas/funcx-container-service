@@ -7,6 +7,9 @@ import logging
 from .config import LogConfig
 
 from fastapi import (FastAPI, BackgroundTasks, Depends)
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
+from fastapi import FastAPI, Request, status
 
 from .callback_router import build_callback_router
 from .build import background_build
@@ -24,6 +27,12 @@ app = FastAPI()
 
 RUN_ID = str(uuid4())
 
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+	exc_str = f'{exc}'.replace('\n', ' ').replace('   ', ' ')
+	log.error(f"{request}: {exc_str}")
+	content = {'status_code': 10422, 'message': exc_str, 'data': None}
+	return JSONResponse(content=content, status_code=status.HTTP_422_UNPROCESSABLE_ENTITY)
 
 @lru_cache()
 def get_settings():
