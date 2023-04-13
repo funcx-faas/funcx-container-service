@@ -1,1 +1,1 @@
-container_service_version = "1.0"
+container_service_version = "1.0.3"

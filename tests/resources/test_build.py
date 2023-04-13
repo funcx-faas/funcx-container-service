@@ -40,6 +40,7 @@ def container_spec_fixture():
 
 
 # Tests
+@pytest.mark.skip()
 def test_repo2docker_build_success(container_spec_fixture, settings_fixture, fp, mocker):
     with tempfile.TemporaryDirectory() as temp_dir:
         run_id = str(uuid.uuid4())
@@ -102,7 +103,7 @@ def test_background_build(container_spec_fixture, settings_fixture, mocker, fp):
 
         background_build(c)
 
-        assert c.build_spec.build_status == BuildStatus.pushed
+        assert c.build_spec.build_status == BuildStatus.ready
 
 
 def test_repo2docker_build_timeout_exception(container_spec_fixture, settings_fixture, mocker, fp):

@@ -53,7 +53,7 @@ def background_build(container: Container):
             log.info(f'Time to push container to repository: {container_push_time}s.')
             container.completion_spec.container_push_time = container_push_time
 
-            completion_response = container.update_status(BuildStatus.pushed)
+            completion_response = container.update_status(BuildStatus.ready)
 
             log.info(f'Build process complete - finished with: {completion_response}')
 
@@ -142,7 +142,7 @@ def repo2docker_build(container, docker_client_version):
 
             log.info(f'REPO2DOCKER: {out_msg}')
 
-            container.update_status(BuildStatus.ready)
+            # container.update_status(BuildStatus.ready)
 
             log.info('Build process complete!')
 

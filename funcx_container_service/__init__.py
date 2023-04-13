@@ -6,7 +6,9 @@ from logging.config import dictConfig
 import logging
 from .config import LogConfig
 
-from fastapi import (FastAPI, BackgroundTasks, Depends)
+from fastapi import (FastAPI, BackgroundTasks, Depends, Request, status)
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
 
 from .callback_router import build_callback_router
 from .build import background_build
@@ -25,6 +27,14 @@ app = FastAPI()
 RUN_ID = str(uuid4())
 
 
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    exc_str = f'{exc}'.replace('\n', ' ').replace('   ', ' ')
+    log.error(f"{request}: {exc_str}")
+    content = {'status_code': 10422, 'message': exc_str, 'data': None}
+    return JSONResponse(content=content, status_code=status.HTTP_422_UNPROCESSABLE_ENTITY)
+
+
 @lru_cache()
 def get_settings():
     return Settings()
@@ -36,7 +46,8 @@ async def startup_event():
     log.info("Starting up funcx container service...")
     log.info(f"URL of webservice (from '.env' file): {settings.WEBSERVICE_URL}")
     log.info(f"URL of container registry (from '.env' file): {settings.REGISTRY_URL}")
-    log.info(f"Username for container registry (from '.env' file): {settings.REGISTRY_USERNAME}")
+    log.info(
+        f"Username for container registry (from '.env' file): {settings.REGISTRY_USERNAME}")
     log.info(f"Build timeout (from '.env' file): {settings.BUILD_TIMEOUT}")
 
 
@@ -70,7 +81,8 @@ async def build_container_image(spec: ContainerSpec,
                 "RUN_ID": str(container.build_spec.RUN_ID)}
 
     else:
-        return {"msg": f"webservice returned {build_response} when attempting to register the build"}
+        return {
+            "msg": f"webservice returned {build_response} when attempting to register the build"}
 
 
 @app.get("/")
